@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { documentSlideUrl, presentationSlideUrl } from "@/lib/api";
 import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
 
 /**
  * 원본 문서와 생성된 발표자료를 슬라이드 단위로 나란히 놓는 전체 화면 비교.
  *
- * 왼쪽은 업로드한 원본 슬라이드(PPTX 는 page = 슬라이드 번호), 오른쪽은 그 자리에 들어간
- * 발표용 슬라이드다. 짝짓기 규칙의 원본은 백엔드 `export_pptx._source_slide_index` 이며,
- * 여기 사본은 화면 표시 전용이다 — 즉 실제로 내려받는 PPTX 가 어떻게 얹히는지를 보여준다.
+ * 양쪽 모두 실제 PPTX 를 렌더링한 슬라이드 이미지다. 왼쪽은 업로드한 원본 파일, 오른쪽은
+ * 내려받게 될 결과 파일을 백엔드가 PowerPoint 로 구운 것이라, 표·도형·배경까지 눈으로 대조된다.
+ * 렌더링이 안 되는 PC(PowerPoint 없음)나 PPTX 가 아닌 입력에서는 글자 비교로 되돌아간다.
  *
- * 원본 글은 chunk 가 아니라 `DocumentResponse.pages` 에서 온다. chunk 는 쪽 경계를 넘어 묶이고
- * page 필드는 chunk 가 "시작한" 쪽이라, chunk 로 왼쪽을 그리면 없는 장이 생기고 남의 글이 섞인다.
+ * 짝짓기 규칙의 원본은 백엔드 `export_pptx._source_slide_index` 이며, 여기 사본은 화면 표시
+ * 전용이다 — 즉 실제로 내려받는 PPTX 가 어떻게 얹히는지를 보여준다.
+ *
+ * 글자 비교의 원본 글은 chunk 가 아니라 `DocumentResponse.pages` 에서 온다. chunk 는 쪽 경계를
+ * 넘어 묶이고 page 필드는 chunk 가 "시작한" 쪽이라, chunk 로 그리면 없는 장이 생기고 남의 글이 섞인다.
  *
  * X 로 닫으면 뒤의 결과 화면이 그대로 남아 있다.
  */
 type Row =
-  | { kind: "rewritten"; page: number; original: string; slide: Slide }
-  | { kind: "added"; slide: Slide }
+  // number 는 발표용 덱에서 몇 번째 장인가 — 결과 슬라이드 이미지를 부르는 주소에 쓴다.
+  | { kind: "rewritten"; page: number; original: string; slide: Slide; number: number }
+  | { kind: "added"; slide: Slide; number: number }
   | { kind: "dropped"; page: number; original: string };
 
 const KIND_LABELS: Record<Row["kind"], string> = {
@@ -47,6 +52,10 @@ export function SourceCompare({
   const isPptx = result.document.filename.toLowerCase().endsWith(".pptx");
   const unitLabel = (page: number) => (isPptx ? `원본 슬라이드 ${page}` : `원문 ${page}쪽`);
 
+  // 원본 슬라이드 이미지는 업로드가 PPTX 였을 때만 만들 수 있다. PDF·TXT 는 글자 비교뿐이다.
+  const [showText, setShowText] = useState(false);
+  const imageMode = isPptx && !showText;
+
   const rows = useMemo(() => {
     // 왼쪽에 그릴 원본 글. 파싱한 쪽 그대로라 "원본 슬라이드 N" 이 실제 N 장과 같다.
     const byPage = new Map<number, string>();
@@ -57,7 +66,7 @@ export function SourceCompare({
     for (const item of result.source_analysis.source_evidence) pageOf.set(item.id, item.page);
 
     const used = new Set<number>();
-    const paired: Row[] = result.slide_deck.slides.map((slide) => {
+    const paired: Row[] = result.slide_deck.slides.map((slide, index) => {
       const counts = new Map<number, number>();
       for (const ref of slide.source_refs) {
         const page = pageOf.get(ref);
@@ -68,9 +77,10 @@ export function SourceCompare({
         .sort((a, b) => b[1] - a[1])
         .find(([candidate]) => !used.has(candidate) && byPage.has(candidate))?.[0];
 
-      if (page === undefined) return { kind: "added", slide };
+      const number = index + 1;
+      if (page === undefined) return { kind: "added", slide, number };
       used.add(page);
-      return { kind: "rewritten", page, original: byPage.get(page) ?? "", slide };
+      return { kind: "rewritten", page, original: byPage.get(page) ?? "", slide, number };
     });
 
     // 짝이 없는 원본도 빠짐없이 보여준다. 실제 PPTX 에서 빠지는 장이 여기서 드러난다.
@@ -105,6 +115,16 @@ export function SourceCompare({
               <Chip>새로 구성 {tally("added")}</Chip>
               <Chip>제외됨 {tally("dropped")}</Chip>
             </span>
+            {isPptx ? (
+              <button
+                type="button"
+                onClick={() => setShowText((value) => !value)}
+                aria-pressed={showText}
+                className="btn-ghost rounded-xl px-3 py-1.5 text-[11px] font-semibold"
+              >
+                {showText ? "슬라이드로 보기" : "글자로 보기"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -119,8 +139,9 @@ export function SourceCompare({
 
       <div className="mx-auto max-w-6xl space-y-3 px-4 py-5 sm:px-6">
         <p className="rounded-xl border border-line bg-surface-muted/40 px-4 py-3 text-xs leading-relaxed text-muted">
-          왼쪽은 업로드한 원본, 오른쪽은 청중에 맞춰 다시 설계한 결과입니다. 사실은 그대로 두고
-          무엇을 넣고 뺄지·어떤 순서로 둘지가 바뀝니다. 발표 시간에 맞추느라 짝이 없는 원본은{" "}
+          왼쪽은 업로드한 원본, 오른쪽은 청중에 맞춰 다시 설계한 결과입니다.{" "}
+          {imageMode ? "두 파일을 실제로 렌더링한 슬라이드 이미지입니다. " : null}사실은 그대로
+          두고 무엇을 넣고 뺄지·어떤 순서로 둘지가 바뀝니다. 발표 시간에 맞추느라 짝이 없는 원본은{" "}
           <strong className="text-foreground">제외됨</strong>으로 표시됩니다.
         </p>
 
@@ -139,14 +160,14 @@ export function SourceCompare({
                 <p className="text-xs leading-relaxed text-muted">
                   원문 전체에서 근거를 모아 새로 만든 슬라이드입니다.
                 </p>
-              ) : row.original.trim() ? (
-                <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted">
-                  {row.original}
-                </p>
+              ) : imageMode ? (
+                <SlideImage
+                  src={documentSlideUrl(result.document.document_id, row.page)}
+                  alt={`원본 ${row.page}번째 슬라이드`}
+                  fallback={<OriginalText text={row.original} />}
+                />
               ) : (
-                <p className="text-xs leading-relaxed text-muted">
-                  글이 없는 장입니다 (이미지·표만 있는 원본).
-                </p>
+                <OriginalText text={row.original} />
               )}
             </Side>
 
@@ -159,32 +180,97 @@ export function SourceCompare({
                   이 원본은 발표 시간과 청중에 맞추는 과정에서 빠졌습니다. 내려받는 PPTX 에도
                   들어가지 않습니다.
                 </p>
+              ) : imageMode ? (
+                <SlideImage
+                  src={presentationSlideUrl(result.presentation_id, row.number)}
+                  alt={`발표용 ${row.number}번째 슬라이드`}
+                  fallback={<SlideText slide={row.slide} />}
+                />
               ) : (
-                <>
-                  <h3 className="text-sm font-bold leading-snug">{row.slide.title}</h3>
-                  {row.slide.takeaway ? (
-                    <p className="mt-2 border-l-2 border-accent bg-accent-soft px-3 py-2 text-xs leading-relaxed">
-                      {row.slide.takeaway}
-                    </p>
-                  ) : null}
-                  <ul className="mt-2 space-y-1.5">
-                    {row.slide.bullets.map((bullet) => (
-                      <li key={bullet} className="flex gap-2 text-xs leading-relaxed">
-                        <span
-                          aria-hidden
-                          className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent"
-                        />
-                        {bullet}
-                      </li>
-                    ))}
-                  </ul>
-                </>
+                <SlideText slide={row.slide} />
               )}
             </Side>
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * 백엔드가 구운 슬라이드 PNG 한 장. 실패하면 조용히 글자 비교로 되돌아간다.
+ *
+ * PowerPoint 가 없는 PC 에서는 503 이 온다 — 렌더링이 없다고 화면이 비면 안 된다.
+ * next/image 를 쓰지 않는 이유: 주소가 백엔드 오리진이라 remotePatterns 설정이 필요하고,
+ * 원본을 그대로 보여주는 것이 목적이라 최적화·리사이즈가 오히려 방해된다.
+ */
+function SlideImage({
+  src,
+  alt,
+  fallback,
+}: {
+  src: string;
+  alt: string;
+  fallback: React.ReactNode;
+}) {
+  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+
+  if (state === "failed") return <>{fallback}</>;
+
+  return (
+    <div className="relative aspect-video overflow-hidden rounded-xl border border-line bg-white">
+      {state === "loading" ? (
+        // 첫 장은 PowerPoint 를 띄우느라 몇 초 걸린다. 무슨 일이 일어나는지 글로 알린다.
+        <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[11px] text-muted">
+          슬라이드 이미지를 만드는 중입니다…
+        </p>
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        width={1280}
+        height={720}
+        loading="lazy"
+        onLoad={() => setState("ready")}
+        onError={() => setState("failed")}
+        className={`h-full w-full object-contain transition-opacity duration-200 ${
+          state === "ready" ? "opacity-100" : "opacity-0"
+        }`}
+      />
+    </div>
+  );
+}
+
+function OriginalText({ text }: { text: string }) {
+  if (!text.trim()) {
+    return (
+      <p className="text-xs leading-relaxed text-muted">
+        글이 없는 장입니다 (이미지·표만 있는 원본).
+      </p>
+    );
+  }
+  return <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted">{text}</p>;
+}
+
+function SlideText({ slide }: { slide: Slide }) {
+  return (
+    <>
+      <h3 className="text-sm font-bold leading-snug">{slide.title}</h3>
+      {slide.takeaway ? (
+        <p className="mt-2 border-l-2 border-accent bg-accent-soft px-3 py-2 text-xs leading-relaxed">
+          {slide.takeaway}
+        </p>
+      ) : null}
+      <ul className="mt-2 space-y-1.5">
+        {slide.bullets.map((bullet) => (
+          <li key={bullet} className="flex gap-2 text-xs leading-relaxed">
+            <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
+            {bullet}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

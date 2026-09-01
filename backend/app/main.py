@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import documents, presentations
 from app.config import get_settings
 from app.llm.factory import build_provider
-from app.services import retrieval
+from app.services import render_slides, retrieval
 
 app = FastAPI(
     title="AudienceDeck AI",
@@ -47,4 +47,6 @@ def health() -> dict[str, object]:
         # retrieval 은 "실제로 어느 검색 경로가 잡혔는가"다. 둘은 다를 수 있다.
         "chroma_enabled": settings.chroma_enabled,
         "retrieval": retrieval.build_retriever(settings).name,
+        # 원본/결과를 슬라이드 이미지로 대조할 수 있는지. 없으면 화면이 글자 대조로 돌아간다.
+        "render_enabled": render_slides.available(),
     }

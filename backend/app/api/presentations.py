@@ -12,6 +12,7 @@ from app.models.contracts import (
     VerificationReport,
     VerifyRequest,
 )
+from app.api.documents import slide_png_response
 from app.services import export_pptx, verifier
 from app.services.pipeline import generate
 from app.services.store import store
@@ -94,6 +95,27 @@ def get_presentation(presentation_id: str) -> GenerateResponse:
     if stored is None:
         raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
     return stored
+
+
+@router.get("/{presentation_id}/slides/{number}")
+def presentation_slide(presentation_id: str, number: int) -> Response:
+    """생성된 발표자료의 슬라이드 한 장을 PNG 로 내려준다 (원본과 결과 대조 화면용).
+
+    내려받는 PPTX 를 그대로 굽는다. 화면에 보이는 장이 곧 파일에 들어 있는 장이어야 한다.
+    `number` 는 화면의 발표용 덱 기준 1-based 이며, 파일 1번은 표지라 여기서 한 장 밀어준다.
+    """
+    stored = store.get_presentation(presentation_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
+
+    document = store.get_document(stored.document.document_id)
+
+    try:
+        content = export_pptx.build_pptx(stored, template=document.source if document else None)
+    except export_pptx.PptxUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return slide_png_response(f"pres:{presentation_id}", content, number + 1)
 
 
 @router.get("/{presentation_id}/export/pptx")

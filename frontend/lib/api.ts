@@ -90,6 +90,20 @@ export async function fetchPresentationPptx(
   };
 }
 
+/**
+ * 원본 PPTX 슬라이드 한 장의 PNG 주소. `<img src>` 에 그대로 넣는다.
+ *
+ * 백엔드가 설치된 PowerPoint 로 굽는다. 못 굽는 PC 면 503 이 오고 화면은 글자 비교로 돌아간다.
+ */
+export function documentSlideUrl(documentId: string, page: number): string {
+  return `${BASE_URL}/api/documents/${documentId}/slides/${page}`;
+}
+
+/** 생성된 발표자료 슬라이드 한 장의 PNG 주소. `number` 는 발표용 덱 기준 1-based. */
+export function presentationSlideUrl(presentationId: string, number: number): string {
+  return `${BASE_URL}/api/presentations/${presentationId}/slides/${number}`;
+}
+
 /** 한국어 파일명은 RFC 5987 (`filename*=UTF-8''...`) 쪽에 들어 있다. */
 function filenameFromDisposition(header: string | null): string | null {
   if (!header) return null;
