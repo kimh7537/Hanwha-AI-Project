@@ -1,0 +1,72 @@
+{
+  "summary": "발표 전에 확인이 필요한 문장이 6건 있습니다.",
+  "status": "warning",
+  "items": [
+    {
+      "severity": "warning",
+      "slide_id": "",
+      "type": "oversimplification",
+      "message": "원문의 조건이 발표자료에 반영되지 않았습니다: 개인정보가 포함된 문서는 마스킹 처리를 거친 뒤에만 분류기에 입력해야 한다.",
+      "source_refs": [
+        "chunk-04"
+      ],
+      "suggested_fix": "이 조건을 관련 슬라이드의 bullet 으로 추가하세요."
+    },
+    {
+      "severity": "warning",
+      "slide_id": "",
+      "type": "oversimplification",
+      "message": "원문의 조건이 발표자료에 반영되지 않았습니다: 정확도 94.2%는 텍스트 레이어가 있는 문서에 한한 수치다.",
+      "source_refs": [
+        "chunk-03"
+      ],
+      "suggested_fix": "이 조건을 관련 슬라이드의 bullet 으로 추가하세요."
+    },
+    {
+      "severity": "warning",
+      "slide_id": "",
+      "type": "oversimplification",
+      "message": "원문의 조건이 발표자료에 반영되지 않았습니다: 두 분류기의 판단이 엇갈리면 규칙 기반 결과를 우선한다.",
+      "source_refs": [
+        "chunk-02"
+      ],
+      "suggested_fix": "이 조건을 관련 슬라이드의 bullet 으로 추가하세요."
+    },
+    {
+      "severity": "warning",
+      "slide_id": "slide-2",
+      "type": "sensitive_info",
+      "message": "고객용 자료에 내부 정보로 보이는 표현이 있습니다: 파트",
+      "source_refs": [
+        "chunk-05",
+        "chunk-03",
+        "chunk-02"
+      ],
+      "suggested_fix": "내부 조직명·시스템명을 일반 명칭으로 바꾸거나 공개 승인 여부를 확인하세요."
+    },
+    {
+      "severity": "warning",
+      "slide_id": "slide-4",
+      "type": "sensitive_info",
+      "message": "고객용 자료에 내부 정보로 보이는 표현이 있습니다: K-Drive, 정보보호팀",
+      "source_refs": [
+        "chunk-05",
+        "chunk-04"
+      ],
+      "suggested_fix": "내부 조직명·시스템명을 일반 명칭으로 바꾸거나 공개 승인 여부를 확인하세요."
+    },
+    {
+      "severity": "warning",
+      "slide_id": "slide-5",
+      "type": "sensitive_info",
+      "message": "고객용 자료에 내부 정보로 보이는 표현이 있습니다: K-Drive, 정보보호팀, 파트",
+      "source_refs": [
+        "chunk-02",
+        "chunk-05",
+        "chunk-03"
+      ],
+      "suggested_fix": "내부 조직명·시스템명을 일반 명칭으로 바꾸거나 공개 승인 여부를 확인하세요."
+    }
+  ],
+  "checked_slides": 5
+}

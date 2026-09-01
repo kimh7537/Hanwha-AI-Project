@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+python-multipart>=0.0.12
+python-dotenv>=1.0
+httpx>=0.27
+anthropic>=1.0
+pymupdf>=1.24
+python-pptx>=1.0
+# 선택: CHROMA_* 가 설정된 경우에만 쓰인다. 없어도 keyword 검색으로 동작한다.
+chromadb>=1.0
+pytest>=8.3

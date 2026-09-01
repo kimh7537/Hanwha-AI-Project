@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* 깔끔한 업무 도구 톤. 오렌지는 강조 1~2곳에만 쓴다 (docs/07-frontend-ux.md). */
+:root {
+  --background: #f7f7f6;
+  --surface: #ffffff;
+  --surface-muted: #f1f1ef;
+  --foreground: #1b1b1a;
+  --muted: #6b6b66;
+  --border: #e0e0dc;
+  --accent: #d1600a;
+  --accent-soft: #fdf1e6;
+
+  --ok: #2f6f4e;
+  --ok-soft: #eaf4ee;
+  --warn: #8a5a00;
+  --warn-soft: #fdf3e0;
+  --danger: #a02a24;
+  --danger-soft: #fbeceb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #14140f;
+    --surface: #1c1c18;
+    --surface-muted: #24241f;
+    --foreground: #ededea;
+    --muted: #a3a39c;
+    --border: #33332c;
+    --accent: #f08b3a;
+    --accent-soft: #33220f;
+
+    --ok: #7fc9a1;
+    --ok-soft: #16241c;
+    --warn: #e2b35c;
+    --warn-soft: #2a2110;
+    --danger: #e88b85;
+    --danger-soft: #2c1614;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  word-break: keep-all;
+}
