@@ -40,6 +40,35 @@ MVP는 작은 문서 대상이므로 keyword 기반으로 충분하다.
 `CHROMA_API_KEY`가 설정된 경우에만 Chroma Cloud를 쓰고, 없으면 메모리/JSON fallback으로 동작한다.
 Chroma 연결 실패가 파이프라인을 중단시켜서는 안 된다.
 
+구현은 `backend/app/services/retrieval.py`이며 다음 순서로 판단한다.
+
+1. **문서가 `max_prompt_chars`(기본 12,000자) 안에 들어가면 검색을 하지 않는다.** chunk 전부를
+   프롬프트에 넣으면 되므로 순위가 의미 없고, 작은 문서에서 굳이 네트워크를 탈 이유도 없다.
+2. 예산을 넘으면 순위를 매겨 예산만큼 고른다. **앞에서부터 자르지 않는다** — 그러면 뒤쪽 chunk가
+   근거가 될 기회조차 없어진다. 고른 뒤에는 다시 문서 순서로 정렬해 프롬프트를 만든다.
+3. 순위 매기기는 `CHROMA_*` 세 값이 모두 있으면 Chroma Cloud 임베딩 검색, 아니면 keyword 점수.
+   Chroma가 실패하면 `RetrievalError`를 잡아 keyword로 되돌리고 `RunContext.notes`에 남긴다.
+   이때 `fallback_used`는 **켜지 않는다** — LLM 응답 실패가 아니라 검색 경로의 강등이며,
+   화면의 "AI 응답 실패" 배지와 뜻이 다르다.
+4. **LLM을 쓸 수 없으면(`mock`) 검색 자체를 건너뛴다.** 휴리스틱 경로는 chunk 전체를 직접 훑으므로
+   순위가 필요 없고, 키·Chroma 없이 데모가 돌아야 한다는 규칙(docs/08)을 지키기 위해서다.
+
+컬렉션은 문서마다 하나(`audiencedeck-<document_id>`)이고 chunk id를 그대로 Chroma id로 쓴다.
+임베딩은 chromadb 기본 모델(all-MiniLM-L6-v2, 최초 1회 약 80MB 다운로드)을 클라이언트에서 계산한다.
+
+Chroma Cloud 호출에서 지키는 것:
+
+- **클라이언트는 자격증명별로 캐시한다.** `CloudClient` 생성자가 tenant/database 확인으로 네트워크를
+  타므로 매 요청마다 새로 만들면 그 왕복이 그대로 쌓인다.
+- **컬렉션 개수가 chunk 수와 같으면 재색인하지 않는다.** 같은 문서로 청중만 바꿔 다시 생성하는 것이
+  데모의 기본 동선이다.
+- **색인은 서버가 알려주는 최대 배치로 나눠 보낸다.** 한 번에 다 보내면 큰 문서에서 거부된다.
+- **query는 `include=[]`로 id만 받는다.** 기본값은 documents·metadatas·distances까지 돌려주는데
+  우리는 id만 쓰고, Chroma Cloud는 반환 데이터에 요금을 매긴다.
+
+컬렉션은 파이프라인이 지우지 않는다. 정리와 실물 점검은 `backend/scripts/check_chroma.py`로 한다
+(`--list`, `--cleanup`). 테스트는 `CHROMA_*`를 비우고 돌기 때문에 이 경로를 타지 않는다.
+
 ## mock / fallback 동작
 
 `LLM_PROVIDER=mock`이거나 LLM 호출이 실패하면 **규칙 기반 휴리스틱 분석**으로 대체한다.

@@ -99,13 +99,15 @@ backend\.venv\Scripts\python.exe .claude\skills\demo-check\run_demo.py
 backend\.venv\Scripts\python.exe .claude\skills\contract-sync\check_contracts.py
 backend\.venv\Scripts\python.exe backend\scripts\build_fixtures.py   # 계약 변경 후 fixture 재생성
 backend\.venv\Scripts\python.exe backend\scripts\build_sample_pptx.py  # PPTX 입력 fixture 재생성
+backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py     # Chroma Cloud 연결·순위 점검
 ```
 
 ## 구현 현황
 
-모듈 A~E, 파이프라인, API, 위저드 UI, 테스트 101개까지 구현되어 있고 `/demo-check` 7항목이 전부
+모듈 A~E, 파이프라인, API, 위저드 UI, 테스트 124개까지 구현되어 있고 `/demo-check` 7항목이 전부
 통과한다. 입력은 PDF / PPTX / TXT 를 지원하고, 출력은 PPTX / Markdown / JSON 다운로드를 지원한다.
-미구현(선택): Chroma 임베딩 검색, DOCX 입력, 결과 영구 저장.
+Chroma Cloud 임베딩 검색은 `CHROMA_*` 가 모두 설정된 경우에만 켜지고 실패 시 keyword 로 되돌아간다.
+미구현(선택): DOCX 입력, 결과 영구 저장.
 
 ### 코드에서 이미 내린 판단 (되돌리기 전에 이유를 확인할 것)
 
@@ -121,3 +123,17 @@ backend\.venv\Scripts\python.exe backend\scripts\build_sample_pptx.py  # PPTX �
   파일 안에서 문장을 요약하거나 자르면 `source_refs` 대응이 깨진다. 넘치면 글자를 줄인다.
 - **화면 라벨의 원본은 `frontend/lib/types.ts` 옆의 `labels.ts` 다.** PPTX 가 백엔드에서
   만들어져 `app/services/labels.py` 에 미러가 있고, `tests/test_labels_mirror.py` 가 대조한다.
+- **검색은 프롬프트 예산을 넘길 때만 돈다.** 문서가 `max_prompt_chars` 안에 들어가면 chunk 전부가
+  프롬프트에 들어가므로 순위가 무의미하다. 작은 문서에서 Chroma 를 호출하면 데모에 불필요한
+  네트워크 의존만 생긴다. mock 경로에서는 검색을 아예 건너뛴다.
+- **Chroma 실패는 `fallback_used` 를 켜지 않는다.** 그 플래그는 "LLM 응답 실패"를 뜻하고 화면에
+  배지로 뜬다. 검색 경로 강등은 `RunContext.notes` 에만 남긴다.
+- **Chroma 클라이언트는 자격증명별로 캐시한다.** `CloudClient` 생성자가 tenant/database 확인으로
+  네트워크를 타므로, `/api/health` 와 매 생성 요청이 각각 새로 만들면 그 왕복이 그대로 쌓인다.
+- **Chroma query 는 `include=[]` 로 id 만 받는다.** 기본값은 documents·metadatas·distances 까지
+  돌려주는데 우리는 id 만 쓰고, Chroma Cloud 는 반환 데이터에 요금을 매긴다.
+- **컬렉션 개수가 chunk 수와 같으면 재색인하지 않는다.** 같은 문서로 청중만 바꿔 다시 생성하는
+  것이 데모의 기본 동선이라, 임베딩 계산과 쓰기 요금을 다시 치를 이유가 없다.
+- **테스트는 `conftest.py` 에서 provider 와 `CHROMA_*` 를 강제로 비운다.** 실 `.env` 가 있는
+  개발기에서 테스트가 실제 API 를 호출하면 느리고 비용이 들며, LLM 출력이 매번 달라
+  휴리스틱을 단정한 테스트가 깨진다.
