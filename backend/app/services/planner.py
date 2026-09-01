@@ -27,6 +27,36 @@ MAX_SLIDES = 10
 # 발표 시간별 기본 장수 (docs/04-slide-planner.md)
 _DURATION_SLIDES = {3: 4, 5: 5, 10: 7}
 
+# 같은 시간이라도 청중에 따라 덱의 밀도가 다르다. 시간은 상한이지 배분이 아니다.
+# 신입은 사전 지식을 가정할 수 없어 한 단계를 더 쪼개야 하고, 임원은 결론으로 압축해야 한다.
+# 이 값이 0 이 아니어야 "청중을 바꾸면 구성이 다시 설계된다"는 말이 성립한다.
+_AUDIENCE_SLIDE_DELTA: dict[Audience, int] = {
+    Audience.NEWCOMER: 1,
+    Audience.PRACTITIONER: 1,
+    Audience.EXECUTIVE: -1,
+    Audience.CUSTOMER: 0,
+}
+
+# 청중별 구성 원칙. 화면의 "AI 구성 전략" 카드에 그대로 나간다.
+_AUDIENCE_STRATEGY: dict[Audience, str] = {
+    Audience.NEWCOMER: (
+        "사전 지식을 가정하지 않고 배경 → 용어 → 동작 순서로 쌓았습니다. "
+        "한 장에 담는 개념을 줄이는 대신 단계를 더 나눴습니다"
+    ),
+    Audience.PRACTITIONER: (
+        "구성과 성능을 먼저 두고 적용 조건·예외를 하나도 빼지 않았습니다. "
+        "판단에 필요한 제약이 누락되는 편이 분량이 느는 것보다 위험합니다"
+    ),
+    Audience.EXECUTIVE: (
+        "결론을 맨 앞에 두고 효과·리스크·의사결정 근거만 남겼습니다. "
+        "기술 상세는 판단에 필요한 만큼으로 줄였습니다"
+    ),
+    Audience.CUSTOMER: (
+        "고객이 얻는 가치와 달라지는 점을 앞세우고 내부 정보는 덜어냈습니다. "
+        "적용 전 확인이 필요한 전제를 마지막에 남겼습니다"
+    ),
+}
+
 _PURPOSE_TITLES: dict[Purpose, str] = {
     Purpose.EDUCATION: "교육 자료",
     Purpose.INTERNAL_REPORT: "내부 보고",
@@ -42,6 +72,7 @@ _VISUALS = {
     "성능과 측정 조건": "핵심 지표 카드 3개",
     "적용 조건과 제약": "체크리스트 형태의 조건 목록",
     "결론": "핵심 결론 한 줄 + 다음 행동",
+    "한 줄 결론": "결론 문장 하나를 화면 가운데에 크게",
     "도입 효과": "Before / After 비교 표",
     "리스크와 전제 조건": "리스크 항목과 대응을 짝지은 표",
     "판단에 필요한 기술 요약": "핵심 구조 요약 다이어그램",
@@ -53,8 +84,23 @@ _VISUALS = {
 
 
 def resolve_slide_count(request: PresentationRequest) -> int:
-    count = request.slide_count or _DURATION_SLIDES.get(request.duration_minutes, 5)
+    """장수는 시간이 상한을 정하고 청중이 밀도를 정한다.
+
+    사용자가 `slide_count` 를 직접 지정했으면 그 값이 우선이다 — 청중 보정은
+    시간에서 유도한 기본값에만 걸린다(docs/04).
+    """
+    if request.slide_count:
+        return max(MIN_SLIDES, min(MAX_SLIDES, request.slide_count))
+
+    count = _DURATION_SLIDES.get(request.duration_minutes, 5)
+    count += _AUDIENCE_SLIDE_DELTA.get(request.audience, 0)
     return max(MIN_SLIDES, min(MAX_SLIDES, count))
+
+
+def build_strategy(request: PresentationRequest, slide_count: int) -> str:
+    """"왜 이 구성인가"를 한 문단으로. 청중이 바뀌면 앞 절과 장수가 함께 바뀐다."""
+    principle = _AUDIENCE_STRATEGY.get(request.audience, "")
+    return f"{principle}. {request.duration_minutes}분 기준 {slide_count}장으로 맞췄습니다."
 
 
 def _bullets_from_text(text: str, limit: int = 4) -> list[str]:
@@ -111,31 +157,30 @@ def plan_heuristic(
         )
 
     # 2) 결론 슬라이드는 앞 슬라이드의 근거를 승계한다
+    conclusion: Slide | None = None
     conclusion_refs = inherit_refs(*[b.source_refs for b in blocks])
     if conclusion_refs:
-        blocks.append(
-            Slide(
-                id="",
-                title="결론 및 다음 행동",
-                takeaway=_conclusion_takeaway(analysis, content, seen_takeaways),
-                bullets=_conclusion_bullets(analysis, content),
-                visual_suggestion=_VISUALS["결론"],
-                speaker_notes="핵심 메시지를 다시 강조하고 다음 행동을 요청한다.",
-                source_refs=conclusion_refs[:3],
-            )
+        conclusion = Slide(
+            id="",
+            title="결론 및 다음 행동",
+            takeaway=_conclusion_takeaway(analysis, content, seen_takeaways),
+            bullets=_conclusion_bullets(analysis, content),
+            visual_suggestion=_VISUALS["결론"],
+            speaker_notes="핵심 메시지를 다시 강조하고 다음 행동을 요청한다.",
+            source_refs=conclusion_refs[:3],
         )
 
-    # 3) 장수 맞추기
-    if len(blocks) > target:
-        # 3분 발표는 결론 우선. 마지막(결론)을 남기고 중간을 덜어낸다.
-        conclusion = blocks[-1]
-        body = blocks[:-1]
-        if request.duration_minutes == 3:
-            blocks = [conclusion] + body[: target - 1]
-        else:
-            blocks = body[: target - 1] + [conclusion]
-    elif len(blocks) < target:
-        blocks.extend(_extra_slides(analysis, target - len(blocks)))
+    # 3) 장수 맞추기. 결론은 본문 밖에 빼 두고 마지막에 다시 붙인다 —
+    #    보충 슬라이드를 그냥 append 하면 결론 뒤에 "핵심 수치"가 오는 덱이 나온다.
+    room = target - (1 if conclusion else 0)
+    if len(blocks) > room:
+        blocks = blocks[:room]
+    elif len(blocks) < room:
+        blocks.extend(_extra_slides(analysis, room - len(blocks)))
+
+    if conclusion is not None:
+        # 3분 발표는 결론 우선 (docs/04).
+        blocks = [conclusion] + blocks if request.duration_minutes == 3 else blocks + [conclusion]
 
     # 4) id 부여 및 근거 보증
     slides: list[Slide] = []
@@ -147,6 +192,7 @@ def plan_heuristic(
 
     deck = SlideDeck(
         title=_deck_title(analysis, request),
+        strategy=build_strategy(request, len(slides)),
         slides=slides,
     )
     _ensure_keywords(deck, analysis, request)
@@ -409,5 +455,9 @@ def plan(
     deck.slides = kept
     if not deck.title:
         deck.title = _deck_title(analysis, request)
+    # LLM 이 전략을 안 썼거나 한 줄로 때웠으면 규칙 문장으로 채운다. 이 칸이 비면
+    # 화면에서 "구성을 다시 설계했다"는 근거가 사라진다.
+    if len(textutil.normalize(deck.strategy)) < 20:
+        deck.strategy = build_strategy(request, len(kept))
     _ensure_keywords(deck, analysis, request)
     return deck

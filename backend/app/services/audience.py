@@ -142,7 +142,8 @@ def transform_heuristic(
         )
 
     elif audience is Audience.EXECUTIVE:
-        add("결론", [analysis.core_message], core_refs, 1)
+        # 덱 마지막의 "결론 및 다음 행동" 과 제목이 겹치지 않게 한다.
+        add("한 줄 결론", [analysis.core_message], core_refs, 1)
         add(
             "도입 효과",
             [n.meaning for n in (effects or analysis.numbers[:2])],

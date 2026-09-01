@@ -182,6 +182,9 @@ class Slide(BaseModel):
 
 class SlideDeck(BaseModel):
     title: str = ""
+    # 이 덱을 왜 이 순서·이 분량으로 짰는지. 청중이 바뀌면 이 문장도 함께 바뀐다.
+    # 표현만 바꾼 것이 아니라 구성을 다시 설계했다는 근거라서 화면에 그대로 노출한다.
+    strategy: str = ""
     slides: list[Slide] = Field(default_factory=list)
 
 

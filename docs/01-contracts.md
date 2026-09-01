@@ -88,6 +88,7 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
 ```json
 {
   "title": "",
+  "strategy": "",
   "slides": [{
     "id": "slide-1",
     "title": "",
@@ -99,6 +100,9 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
   }]
 }
 ```
+
+`strategy`는 **왜 이 순서·이 분량으로 구성했는지**다. 청중이 바뀌면 이 문장도 바뀐다.
+원문 사실을 적는 칸이 아니라 설계 의도를 적는 칸이므로 `source_refs`를 갖지 않는다.
 
 ## PresentationSupport (모듈 D 출력)
 

@@ -40,6 +40,53 @@ def test_explicit_slide_count_is_clamped() -> None:
     assert resolve_slide_count(_request(slide_count=1)) == 3
 
 
+def test_audience_changes_the_slide_budget() -> None:
+    """같은 5분이라도 청중이 다르면 장수가 달라야 한다.
+
+    여기가 같아지면 청중 조건은 '표현만 바꾸는 옵션'이 된다 (docs/04).
+    """
+
+    def count(audience: str) -> int:
+        return resolve_slide_count(_request(audience=audience, slide_count=None))
+
+    assert count("executive") < count("customer") < count("newcomer")
+    assert count("practitioner") > count("executive")
+
+
+def test_explicit_slide_count_skips_the_audience_delta() -> None:
+    """사용자가 장수를 직접 지정하면 청중 보정을 걸지 않는다."""
+    for audience in ("newcomer", "practitioner", "executive", "customer"):
+        assert resolve_slide_count(_request(audience=audience, slide_count=6)) == 6
+
+
+def test_audience_changes_structure_not_just_wording(analysis: SourceAnalysis) -> None:
+    """청중을 바꾸면 슬라이드 구성 자체가 달라진다."""
+    newcomer = _plan(analysis, _request(audience="newcomer", slide_count=None))
+    executive = _plan(analysis, _request(audience="executive", slide_count=None))
+
+    assert len(newcomer.slides) != len(executive.slides)
+    assert [s.title for s in newcomer.slides] != [s.title for s in executive.slides]
+    # 임원 덱은 결론이 맨 앞이다.
+    assert "결론" in executive.slides[0].title
+
+
+def test_strategy_is_filled_and_audience_specific(analysis: SourceAnalysis) -> None:
+    """구성 전략이 비면 '다시 설계했다'는 근거가 화면에서 사라진다."""
+    newcomer = _plan(analysis, _request(audience="newcomer", slide_count=None))
+    executive = _plan(analysis, _request(audience="executive", slide_count=None))
+
+    assert len(newcomer.strategy) >= 20
+    assert newcomer.strategy != executive.strategy
+    assert str(len(newcomer.slides)) in newcomer.strategy
+
+
+def test_conclusion_stays_last(analysis: SourceAnalysis) -> None:
+    """보충 슬라이드가 결론 뒤에 붙으면 덱이 이상해진다."""
+    for audience in ("newcomer", "practitioner", "customer"):
+        deck = _plan(analysis, _request(audience=audience, slide_count=None))
+        assert deck.slides[-1].title.startswith("결론")
+
+
 def test_every_slide_has_evidence(analysis: SourceAnalysis) -> None:
     """데모 성공 기준 4번. 근거 없는 슬라이드는 만들지 않는다."""
     deck = _plan(analysis, _request())

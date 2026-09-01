@@ -119,6 +119,8 @@ export interface Slide {
 
 export interface SlideDeck {
   title: string;
+  /** 이 청중이라서 왜 이 순서·이 분량인지. 청중이 바뀌면 함께 바뀐다. */
+  strategy: string;
   slides: Slide[];
 }
 
