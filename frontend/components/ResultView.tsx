@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import type { Audience, GenerateResponse, VerificationReport } from "@/lib/types";
+import type { Audience, GenerateResponse, PageContent, VerificationReport } from "@/lib/types";
 import {
   AUDIENCE_LABELS,
   ISSUE_TYPE_LABELS,
@@ -14,6 +14,7 @@ import {
 import { ApiError, fetchPresentationPptx, generatePresentation } from "@/lib/api";
 import { download, downloadBlob, toMarkdown } from "@/lib/export";
 import { EvidenceDialog, EvidenceRefs } from "./EvidenceRef";
+import { SourceCompare } from "./SourceCompare";
 import {
   Button,
   Card,
@@ -33,11 +34,14 @@ const ALL_AUDIENCES: Audience[] = ["newcomer", "practitioner", "executive", "cus
 export function ResultView({
   result,
   report,
+  pages,
   verifying,
   onRestart,
 }: {
   result: GenerateResponse;
   report: VerificationReport | null;
+  /** 업로드 응답의 원본 쪽 글. 원본 비교 화면에서만 쓴다. */
+  pages: PageContent[];
   verifying: boolean;
   onRestart: () => void;
 }) {
@@ -45,6 +49,7 @@ export function ResultView({
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   const [pptxWorking, setPptxWorking] = useState(false);
   const [pptxError, setPptxError] = useState<string | null>(null);
+  const [comparing, setComparing] = useState(false);
 
   // PPTX 는 백엔드에서 만든다. 실패해도 Markdown / JSON 다운로드는 그대로 쓸 수 있다.
   async function downloadPptx() {
@@ -146,6 +151,9 @@ export function ResultView({
             >
               JSON
             </Button>
+            <Button className="px-4 py-2 text-xs" onClick={() => setComparing(true)}>
+              원본과 비교
+            </Button>
             <Button className="px-4 py-2 text-xs" onClick={onRestart}>
               다른 조건으로 다시 만들기
             </Button>
@@ -206,6 +214,11 @@ export function ResultView({
         evidence={evidenceId ? (evidenceById.get(evidenceId) ?? null) : null}
         onClose={() => setEvidenceId(null)}
       />
+
+      {/* 결과 화면 위에 덮기만 하므로 닫으면 보던 탭이 그대로 남는다. */}
+      {comparing ? (
+        <SourceCompare result={result} pages={pages} onClose={() => setComparing(false)} />
+      ) : null}
     </div>
   );
 }

@@ -4,7 +4,7 @@
 
 ```text
 POST /api/documents
-  multipart/form-data (file) → { document, chunks }
+  multipart/form-data (file) → { document, chunks, pages }
   파일 업로드 및 chunk 생성
 
 POST /api/presentations/generate

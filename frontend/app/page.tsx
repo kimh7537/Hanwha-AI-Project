@@ -207,6 +207,7 @@ export default function Page() {
         <ResultView
           result={result}
           report={report}
+          pages={document?.pages ?? []}
           verifying={verifying}
           onRestart={() => setStage("conditions")}
         />

@@ -44,4 +44,6 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentResponse:
         )
 
     store.save_document(document)
-    return DocumentResponse(document=document.meta, chunks=document.chunks)
+    return DocumentResponse(
+        document=document.meta, chunks=document.chunks, pages=document.pages
+    )

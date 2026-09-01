@@ -71,9 +71,15 @@ def test_pptx_upload_produces_chunks(client: TestClient) -> None:
     assert response.status_code == 200, response.text
 
     payload = response.json()
-    assert payload["document"]["page_count"] >= 5  # 슬라이드 수
+    page_count = payload["document"]["page_count"]
+    assert page_count >= 5  # 슬라이드 수
     assert payload["chunks"]
     assert payload["chunks"][0]["id"] == "chunk-01"
+
+    # 원본 대조 화면은 "원본 슬라이드 N" 을 빠짐없이 그린다. chunk 는 쪽 경계를 넘어 묶이고
+    # page 는 chunk 가 "시작한" 쪽이라 chunk 로는 이 성질이 깨진다 — 그래서 pages 를 따로 받는다.
+    assert [page["page"] for page in payload["pages"]] == list(range(1, page_count + 1))
+    assert {chunk["page"] for chunk in payload["chunks"]} < set(range(1, page_count + 1))
 
 
 def test_generate_returns_full_pipeline(client: TestClient, uploaded: dict) -> None:
