@@ -371,10 +371,12 @@ cd frontend; npm run build
 backend\.venv\Scripts\python.exe .claude\skills\demo-check\run_demo.py        # 데모 기준 7항목
 backend\.venv\Scripts\python.exe .claude\skills\contract-sync\check_contracts.py
 backend\.venv\Scripts\python.exe backend\scripts\build_fixtures.py            # 계약 변경 후
+backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py              # Chroma Cloud 점검
 ```
 
-> `backend/.env`에 `LLM_PROVIDER`가 `mock` 이외로 설정되어 있으면 `test_api.py`의
-> provider 단언 2건이 실패한다. 테스트는 `LLM_PROVIDER=mock`으로 돌린다.
+> 테스트는 `conftest.py`에서 `LLM_PROVIDER=mock`과 빈 `CHROMA_*`를 강제한다. 실 `.env`가 있는
+> 개발기에서도 테스트가 실제 API를 부르지 않는다. 그래서 임베딩 검색 경로는 테스트가 아니라
+> `check_chroma.py`로 확인한다.
 
 ---
 
@@ -395,11 +397,10 @@ backend\.venv\Scripts\python.exe backend\scripts\build_fixtures.py            # 
 ## 12. 구현 범위
 
 **구현됨** — 업로드·파싱(PDF/PPTX/TXT)·청킹, 모듈 A~E 전체, mock↔실 LLM 전환과 자동 fallback,
-위저드 UI 4단계, 결과 4개 탭, 근거 클릭 조회, 고객용 경고,
-**PPTX/Markdown/JSON 다운로드**, 백엔드 테스트 101개.
+**Chroma Cloud 임베딩 검색과 keyword fallback**, 위저드 UI 4단계, 결과 4개 탭, 근거 클릭 조회,
+고객용 경고, **PPTX/Markdown/JSON 다운로드**, 백엔드 테스트 124개.
 
-**미구현(선택)** — Chroma Cloud 임베딩 검색(현재는 keyword/메모리), DOCX 입력,
-결과 영구 저장, 실시간 AI 관객 대화(현재는 예상 질문 카드).
+**미구현(선택)** — DOCX 입력, 결과 영구 저장, 실시간 AI 관객 대화(현재는 예상 질문 카드).
 
 ---
 

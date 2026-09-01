@@ -38,7 +38,8 @@ cd backend
 .venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
 ```
 
-`GET http://localhost:8000/api/health` 로 현재 provider(`mock` / `anthropic` / `openai`)를 확인할 수 있다.
+`GET http://localhost:8000/api/health` 로 현재 provider(`mock` / `anthropic` / `openai`)와
+검색 경로(`retrieval`: `chroma` / `keyword`)를 확인할 수 있다.
 
 ### 2. 프론트엔드
 
@@ -74,7 +75,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 | `LLM_PROVIDER` | `mock`(기본) / `anthropic` / `openai` |
 | `LLM_API_KEY` | provider API 키. 없으면 자동으로 mock 으로 동작한다 |
 | `LLM_MODEL` | 생략 시 provider 기본 모델 (Anthropic: `claude-opus-5`) |
-| `CHROMA_API_KEY` / `CHROMA_TENANT` / `CHROMA_DATABASE` | 선택. 없으면 메모리 fallback |
+| `CHROMA_API_KEY` / `CHROMA_TENANT` / `CHROMA_DATABASE` | 선택. **셋 다** 있어야 임베딩 검색이 켜진다. 없거나 실패하면 keyword 검색 |
 | `NEXT_PUBLIC_API_BASE_URL` | 프론트엔드가 바라볼 백엔드 주소 |
 
 **API 키는 프론트엔드에 두지 않는다.** 모든 LLM 호출은 FastAPI 안에서만 일어난다.
@@ -113,6 +114,7 @@ backend/app/
   services/support.py     모듈 D 스크립트·Q&A
   services/verifier.py    모듈 E 원문 대비 검증
   services/pipeline.py    A→E 오케스트레이션
+  services/retrieval.py   프롬프트에 넣을 chunk 선택 (Chroma / keyword)
   services/export_pptx.py PPTX 파일 생성
   llm/                    provider adapter (mock / anthropic / openai)
 frontend/
@@ -175,6 +177,15 @@ fixture 재생성 (계약을 바꾼 뒤):
 backend\.venv\Scripts\python.exe backend\scripts\build_fixtures.py
 ```
 
+Chroma Cloud 연결·검색 점검 (`CHROMA_*` 를 채운 뒤). 테스트는 `CHROMA_*` 를 비우고 돌기 때문에
+임베딩 검색 경로는 이 스크립트로만 실물 확인할 수 있다:
+
+```powershell
+backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py            # 연결·색인·순위 점검
+backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py --list     # 남아 있는 컬렉션 목록
+backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py --cleanup  # 컬렉션 정리
+```
+
 ---
 
 ## 배포
@@ -199,8 +210,7 @@ Browser
 ## 현재 구현 범위와 남은 것
 
 **구현됨** — 업로드·파싱(PDF/PPTX/TXT)·청킹, 모듈 A~E 전체, mock/실 LLM provider 전환과 자동 fallback,
-위저드 UI 4단계, 결과 4개 탭, 근거 클릭 조회, 고객용 경고, PPTX/Markdown/JSON 다운로드,
-백엔드 테스트 101개.
+Chroma Cloud 임베딩 검색과 keyword fallback, 위저드 UI 4단계, 결과 4개 탭, 근거 클릭 조회,
+고객용 경고, PPTX/Markdown/JSON 다운로드, 백엔드 테스트 108개.
 
-**미구현(선택 기능)** — Chroma Cloud 임베딩 검색(현재는 keyword/메모리 fallback),
-DOCX 입력, 결과 영구 저장, 실시간 AI 관객 대화(현재는 예상 질문 카드).
+**미구현(선택 기능)** — DOCX 입력, 결과 영구 저장, 실시간 AI 관객 대화(현재는 예상 질문 카드).
