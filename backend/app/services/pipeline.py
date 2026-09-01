@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from app.llm.base import RunContext
 from app.llm.factory import build_provider
@@ -37,7 +38,10 @@ def build_document(filename: str, data: bytes) -> StoredDocument:
         char_count=sum(len(page.text) for page in pages),
         chunk_count=len(chunks),
     )
-    return StoredDocument(meta=meta, chunks=chunks)
+    # PPTX 는 원본을 그대로 들고 있는다. export 가 이 파일 위에 결과를 얹어
+    # 원본의 이미지·표·서식을 살리기 때문이다 (services/export_pptx.build_pptx).
+    source = data if Path(filename or "").suffix.lower() == ".pptx" else None
+    return StoredDocument(meta=meta, chunks=chunks, source=source)
 
 
 def build_document_from_text(text: str, filename: str = "sample.txt") -> StoredDocument:

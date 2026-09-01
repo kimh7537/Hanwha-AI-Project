@@ -17,6 +17,9 @@ from app.models.contracts import Chunk, DocumentMeta, GenerateResponse
 class StoredDocument:
     meta: DocumentMeta
     chunks: list[Chunk] = field(default_factory=list)
+    # 원본 PPTX 바이트. export 가 이 파일 위에 결과를 얹어 이미지·표·서식을 살린다.
+    # PPTX 가 아닌 입력이면 None 이다. (인메모리라 업로드 상한 30MB 만큼 메모리를 쓴다)
+    source: bytes | None = None
 
     @property
     def text(self) -> str:

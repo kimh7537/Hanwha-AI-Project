@@ -101,14 +101,18 @@ def export_presentation_pptx(presentation_id: str) -> Response:
     """저장된 결과를 PPTX 로 내려준다.
 
     새 문장을 만들지 않고 이미 검증을 마친 결과를 그대로 배치하므로 재생성이 필요 없다.
+    입력이 PPTX 였으면 원본 파일 위에 얹어 원본의 이미지·표·서식을 지킨다.
     python-pptx 가 없는 환경에서도 앱은 동작해야 하므로 실패는 503 + 한국어 안내로 끝낸다.
     """
     stored = store.get_presentation(presentation_id)
     if stored is None:
         raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
 
+    # source 는 원본이 PPTX 였을 때만 채워져 있다. 문서가 없으면 새 덱으로 만든다.
+    document = store.get_document(stored.document.document_id)
+
     try:
-        content = export_pptx.build_pptx(stored)
+        content = export_pptx.build_pptx(stored, template=document.source if document else None)
     except export_pptx.PptxUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

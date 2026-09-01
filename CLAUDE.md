@@ -121,6 +121,10 @@ Chroma Cloud 임베딩 검색은 `CHROMA_*` 가 모두 설정된 경우에만 �
   "3개 부서"의 3과 겹쳐 오탐이 난다.
 - **PPTX export 는 새 문장을 만들지 않는다.** 검증을 마친 `GenerateResponse` 를 배치만 한다.
   파일 안에서 문장을 요약하거나 자르면 `source_refs` 대응이 깨진다. 넘치면 글자를 줄인다.
+- **입력이 PPTX 면 export 는 원본 파일 위에 얹는다.** 빈 프레젠테이션에 새로 그리면 사용자가
+  만들어 둔 이미지·표·배경·글꼴이 전부 사라진다. 원본 바이트를 `StoredDocument.source` 에
+  들고 있다가 `build_pptx(result, template=...)` 로 넘기고, 원본 슬라이드에서는 텍스트
+  프레임의 글만 바꾼다. 발표 시간에 맞춘 덱이라 짝이 없는 원본 슬라이드는 빠진다.
 - **화면 라벨의 원본은 `frontend/lib/types.ts` 옆의 `labels.ts` 다.** PPTX 가 백엔드에서
   만들어져 `app/services/labels.py` 에 미러가 있고, `tests/test_labels_mirror.py` 가 대조한다.
 - **검색은 프롬프트 예산을 넘길 때만 돈다.** 문서가 `max_prompt_chars` 안에 들어가면 chunk 전부가

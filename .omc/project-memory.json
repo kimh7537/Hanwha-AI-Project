@@ -1,0 +1,190 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1788271086152,
+  "projectRoot": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "backend": {
+      "path": "backend",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1788271086100,
+      "keyFiles": [
+        "pytest.ini",
+        "requirements.txt"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 11,
+      "lastAccessed": 1788271086101,
+      "keyFiles": [
+        "00-overview.md",
+        "01-contracts.md",
+        "02-document-analysis.md",
+        "03-audience-transform.md",
+        "04-slide-planner.md"
+      ]
+    },
+    "frontend": {
+      "path": "frontend",
+      "purpose": null,
+      "fileCount": 10,
+      "lastAccessed": 1788271086101,
+      "keyFiles": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "eslint.config.mjs",
+        "next.config.ts",
+        "package-lock.json"
+      ]
+    },
+    "backend\\app": {
+      "path": "backend\\app",
+      "purpose": "Application code",
+      "fileCount": 3,
+      "lastAccessed": 1788271086102,
+      "keyFiles": [
+        "config.py",
+        "main.py",
+        "__init__.py"
+      ]
+    },
+    "backend\\fixtures": {
+      "path": "backend\\fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 9,
+      "lastAccessed": 1788271086102,
+      "keyFiles": [
+        "audience_content.json",
+        "presentation_request.json",
+        "presentation_support.json"
+      ]
+    },
+    "backend\\scripts": {
+      "path": "backend\\scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 3,
+      "lastAccessed": 1788271086102,
+      "keyFiles": [
+        "build_fixtures.py",
+        "build_sample_pptx.py",
+        "check_chroma.py"
+      ]
+    },
+    "backend\\tests": {
+      "path": "backend\\tests",
+      "purpose": "Test files",
+      "fileCount": 14,
+      "lastAccessed": 1788271086103,
+      "keyFiles": [
+        "conftest.py",
+        "test_analyzer.py",
+        "test_api.py"
+      ]
+    },
+    "frontend\\app": {
+      "path": "frontend\\app",
+      "purpose": "Application code",
+      "fileCount": 4,
+      "lastAccessed": 1788271086103,
+      "keyFiles": [
+        "favicon.ico",
+        "globals.css",
+        "layout.tsx"
+      ]
+    },
+    "frontend\\components": {
+      "path": "frontend\\components",
+      "purpose": "UI components",
+      "fileCount": 6,
+      "lastAccessed": 1788271086103,
+      "keyFiles": [
+        "ConditionStep.tsx",
+        "EvidenceRef.tsx",
+        "GeneratingStep.tsx"
+      ]
+    },
+    "frontend\\lib": {
+      "path": "frontend\\lib",
+      "purpose": "Library code",
+      "fileCount": 4,
+      "lastAccessed": 1788271086104,
+      "keyFiles": [
+        "api.ts",
+        "export.ts",
+        "labels.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "backend/app/services/export_pptx.py",
+      "accessCount": 3,
+      "lastAccessed": 1788271803101,
+      "type": "file"
+    },
+    {
+      "path": "backend/tests/test_export_pptx.py",
+      "accessCount": 3,
+      "lastAccessed": 1788271995782,
+      "type": "file"
+    },
+    {
+      "path": "backend/app/api/presentations.py",
+      "accessCount": 1,
+      "lastAccessed": 1788271832257,
+      "type": "file"
+    },
+    {
+      "path": "docs/04-slide-planner.md",
+      "accessCount": 1,
+      "lastAccessed": 1788272188412,
+      "type": "file"
+    },
+    {
+      "path": "frontend/components/ResultView.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788272218224,
+      "type": "file"
+    },
+    {
+      "path": "CLAUDE.md",
+      "accessCount": 1,
+      "lastAccessed": 1788272238524,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

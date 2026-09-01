@@ -149,6 +149,9 @@ export function ResultView({
 
         <p className="mt-2 text-xs text-muted">
           PPTX 에는 발표자 노트로 스크립트가, 부록에 예상 Q&amp;A 와 검증 결과가 함께 들어갑니다.
+          {result.document.filename.toLowerCase().endsWith(".pptx")
+            ? " 업로드한 원본 PPTX 의 이미지·표·서식 위에 내용을 얹습니다. 발표 시간에 맞추느라 짝이 없는 원본 슬라이드는 빠집니다."
+            : null}
         </p>
       </Card>
 

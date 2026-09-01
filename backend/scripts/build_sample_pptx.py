@@ -3,6 +3,7 @@
 `fixtures/sample_document.txt` 와 같은 내용을 발표자료 형태로 옮긴 것이다.
 숫자·용어를 그대로 유지해야 파싱 테스트의 근거 probe 가 성립한다.
 표와 발표자 노트를 일부러 섞어 두어 파서가 두 경로를 모두 타게 한다.
+그림도 한 장 넣는다 — export 가 원본 이미지를 지키는지 확인하려면 지킬 대상이 있어야 한다.
 
 사용:
     backend\\.venv\\Scripts\\python.exe backend\\scripts\\build_sample_pptx.py
@@ -10,10 +11,17 @@
 
 from __future__ import annotations
 
+import base64
+import io
 from pathlib import Path
 
 from pptx import Presentation
-from pptx.util import Pt
+from pptx.util import Inches, Pt
+
+# 1x1 PNG. 그림 도형 하나가 있으면 되므로 내용은 중요하지 않다.
+_PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
 
 BACKEND = Path(__file__).resolve().parents[1]
 OUTPUT = BACKEND / "fixtures" / "sample_document.pptx"
@@ -146,6 +154,11 @@ def main() -> int:
     _add_table_slide(presentation)
     for title, bullets, notes in SECTIONS[2:]:
         _add_bullet_slide(presentation, title, bullets, notes)
+
+    # 마지막 슬라이드 우하단에 그림 한 장. 본문 자리를 가리지 않는 위치다.
+    presentation.slides[-1].shapes.add_picture(
+        io.BytesIO(_PIXEL_PNG), Inches(7.2), Inches(5.4), Inches(2.2), Inches(1.4)
+    )
 
     presentation.save(OUTPUT)
     print(f"생성: fixtures/{OUTPUT.name} (슬라이드 {len(presentation.slides._sldIdLst)}장)")
