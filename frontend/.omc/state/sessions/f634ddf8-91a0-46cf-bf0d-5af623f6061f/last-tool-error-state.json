@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__plugin_ecc_chrome-devtools__wait_for",
+  "tool_input_preview": "{\"pageId\":5,\"text\":[\"AI 구성 전략\"],\"timeout\":60000}",
+  "error": "Error: Timed out after waiting 60000ms",
+  "timestamp": "2026-09-01T15:31:43.087Z",
+  "retry_count": 1
+}

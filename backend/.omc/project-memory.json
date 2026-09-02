@@ -1,0 +1,156 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1788274977627,
+  "projectRoot": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\backend",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": "snake_case",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "app",
+      "scripts",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 3,
+      "lastAccessed": 1788274977602,
+      "keyFiles": [
+        "config.py",
+        "main.py",
+        "__init__.py"
+      ]
+    },
+    "fixtures": {
+      "path": "fixtures",
+      "purpose": "Test fixtures",
+      "fileCount": 9,
+      "lastAccessed": 1788274977603,
+      "keyFiles": [
+        "audience_content.json",
+        "presentation_request.json",
+        "presentation_support.json",
+        "sample_document.pdf",
+        "sample_document.pptx"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 3,
+      "lastAccessed": 1788274977603,
+      "keyFiles": [
+        "build_fixtures.py",
+        "build_sample_pptx.py",
+        "check_chroma.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 14,
+      "lastAccessed": 1788274977603,
+      "keyFiles": [
+        "conftest.py",
+        "test_analyzer.py",
+        "test_api.py",
+        "test_audience.py",
+        "test_chunking.py"
+      ]
+    },
+    "app\\api": {
+      "path": "app\\api",
+      "purpose": "API routes",
+      "fileCount": 3,
+      "lastAccessed": 1788274977604,
+      "keyFiles": [
+        "documents.py",
+        "presentations.py",
+        "__init__.py"
+      ]
+    },
+    "app\\models": {
+      "path": "app\\models",
+      "purpose": "Data models",
+      "fileCount": 2,
+      "lastAccessed": 1788274977604,
+      "keyFiles": [
+        "contracts.py",
+        "__init__.py"
+      ]
+    },
+    "app\\services": {
+      "path": "app\\services",
+      "purpose": "Business logic services",
+      "fileCount": 15,
+      "lastAccessed": 1788274977604,
+      "keyFiles": [
+        "analyzer.py",
+        "audience.py",
+        "chunking.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "tests/test_api.py",
+      "accessCount": 6,
+      "lastAccessed": 1788305823793,
+      "type": "file"
+    },
+    {
+      "path": "app/services/render_slides.py",
+      "accessCount": 2,
+      "lastAccessed": 1788305020919,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 1,
+      "lastAccessed": 1788304417615,
+      "type": "directory"
+    },
+    {
+      "path": "app/services/export_pptx.py",
+      "accessCount": 1,
+      "lastAccessed": 1788304485448,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

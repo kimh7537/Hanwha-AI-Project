@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project\\\" && python - <<'PY'\\nimport pathlib\\np = pathlib.Path(\\\"backend/app/services/export_pptx.py\\\")\\ns = p.read_text(encodi...",
-  "error": "Exit code 2\n/usr/bin/bash: -c: line 226: unexpected EOF while looking for matching `''",
-  "timestamp": "2026-09-01T14:07:24.189Z",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project\\\" && git add backend/app/api/documents.py backend/app/api/presentations.py backend/app/services/slide_diff.py backend/t...",
+  "error": "Exit code 129\nwarning: in the working copy of 'frontend/components/SourceCompare.tsx', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'backend/app/services/slide_diff.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'backend/tests/test_slide_diff.py', LF will be replaced by CRLF the next time Git touches it\nerror: unknown option `cached'\nusage: git status [<options>] [--] [<pathspec>...]\n\n    -v, --[no-]verbos...",
+  "timestamp": "2026-09-02T03:48:26.992Z",
   "retry_count": 1
 }
