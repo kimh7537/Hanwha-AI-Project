@@ -99,15 +99,8 @@ export function UploadStep({
           </div>
         ) : null}
 
-        {uploading ? (
-          <section className="mt-5 overflow-hidden rounded-2xl border border-line bg-surface-muted/40">
-            <div className="border-b border-line px-4 py-3">
-              <p className="text-sm font-semibold">업로드하는 동안 미니게임</p>
-              <p className="mt-0.5 text-[11px] text-muted">파일 분석이 끝나면 자동으로 다음 단계로 진행됩니다.</p>
-            </div>
-            <iframe title="영화 이모지 퀴즈" src="/waiting-game.html" className="h-[480px] w-full border-0" />
-          </section>
-        ) : null}
+        {/* 미니게임은 생성 화면(`GeneratingStep`)에만 둔다. 업로드는 몇 초면 끝나서
+            여기 붙이면 화면이 한 번 깜빡이고 사라진다. */}
 
         {document ? (
           <div className="animate-in mt-6 rounded-2xl border border-ok/25 bg-ok-soft/40 p-4">
