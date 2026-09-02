@@ -64,7 +64,12 @@ CHROMA_API_KEY=
 CHROMA_TENANT=
 CHROMA_DATABASE=
 NEXT_PUBLIC_API_BASE_URL=
+ALLOWED_ORIGINS=         # 배포한 프론트엔드 주소. 쉼표로 여러 개. localhost 는 항상 허용
 ```
+
+`ALLOWED_ORIGINS` 는 배포에서만 의미가 있다. 화면과 API 가 다른 도메인에 놓이는 순간
+브라우저가 Origin 을 글자 그대로 대조하므로, 여기에 배포 주소가 없으면 화면에는
+"백엔드 서버에 연결할 수 없습니다"만 뜨고 서버 로그에는 아무 흔적도 남지 않는다.
 
 ## provider adapter 규칙
 
@@ -85,6 +90,11 @@ Browser
 ```
 
 배포 환경변수나 Chroma Cloud가 없어도 **샘플 문서 + mock provider로 로컬에서 즉시 시연**되어야 한다.
+
+실제 배포 설정은 저장소 루트의 `render.yaml`(백엔드 설계도)에 있다. 절차는 `README.md` 의
+"배포" 절을 따른다. 백엔드는 **상주 프로세스여야 한다** — 업로드한 문서와 생성 결과가
+`services/store.py` 의 인메모리 저장소에 있어서, 서버리스로 올리면 업로드와 생성이
+서로 다른 인스턴스에 떨어져 "문서를 찾을 수 없습니다"가 난다.
 
 ## 로컬 실행
 

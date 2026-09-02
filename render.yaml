@@ -1,0 +1,38 @@
+# Render 배포 설계도(Blueprint). 대시보드에서 이 저장소를 고르면 아래 설정이 그대로 잡힌다.
+#
+# 왜 서버리스(Vercel Functions 등)가 아니라 상주 프로세스인가:
+# 업로드한 문서와 생성 결과는 `app/services/store.py` 의 인메모리 저장소에 있다.
+# 업로드와 생성이 서로 다른 인스턴스에 떨어지면 "문서를 찾을 수 없습니다"가 난다.
+# 한 프로세스가 계속 떠 있어야 한다.
+services:
+  - type: web
+    name: audiencedeck-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      # 로컬 개발과 같은 3.12. pymupdf / python-pptx 휠이 이 버전으로 검증돼 있다.
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # 아래는 값을 저장소에 두지 않는다(sync: false → 대시보드에서 직접 입력).
+      # API 키는 백엔드에만 둔다는 규칙이 배포에서도 그대로다.
+      - key: LLM_PROVIDER
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      # 배포한 프론트엔드 주소. 이것이 없으면 브라우저가 CORS 로 막는다.
+      - key: ALLOWED_ORIGINS
+        sync: false
+      # 선택. 비워 두면 keyword 검색으로 동작한다.
+      - key: CHROMA_API_KEY
+        sync: false
+      - key: CHROMA_TENANT
+        sync: false
+      - key: CHROMA_DATABASE
+        sync: false

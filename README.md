@@ -77,6 +77,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 | `LLM_MODEL` | 생략 시 provider 기본 모델 (Anthropic: `claude-opus-5`) |
 | `CHROMA_API_KEY` / `CHROMA_TENANT` / `CHROMA_DATABASE` | 선택. **셋 다** 있어야 임베딩 검색이 켜진다. 없거나 실패하면 keyword 검색 |
 | `NEXT_PUBLIC_API_BASE_URL` | 프론트엔드가 바라볼 백엔드 주소 |
+| `ALLOWED_ORIGINS` | 배포에서만 쓴다. 백엔드가 CORS 로 허용할 프론트엔드 주소, 쉼표로 여러 개. `localhost` 는 항상 허용 |
 
 **API 키는 프론트엔드에 두지 않는다.** 모든 LLM 호출은 FastAPI 안에서만 일어난다.
 
@@ -198,12 +199,35 @@ Browser
        → Chroma Cloud (선택)
 ```
 
-- 프론트엔드: Vercel에 `frontend/` 를 연결하고 환경변수 `NEXT_PUBLIC_API_BASE_URL` 에 배포된 백엔드 주소를 넣는다.
-- 백엔드: `pip install -r backend/requirements.txt` 후
-  `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (작업 디렉터리 `backend/`).
-  환경변수로 `LLM_PROVIDER`, `LLM_API_KEY` 를 넣는다.
-- `backend/app/main.py` 의 CORS `allow_origins` 에 배포된 프론트엔드 도메인을 추가해야 한다.
-- 현재 저장 방식은 인메모리다. 서버를 재시작하면 업로드한 문서와 생성 결과가 사라진다.
+백엔드를 먼저 올린다. 프론트엔드는 빌드 시점에 백엔드 주소를 필요로 한다.
+
+**1. 백엔드 (Render)** — 저장소 루트의 `render.yaml` 이 설계도다.
+
+1. Render → New → Blueprint → 이 저장소 선택. `render.yaml` 의 설정이 그대로 잡힌다.
+2. 값을 물어보는 환경변수를 채운다. 실 LLM 을 쓸 때만 `LLM_PROVIDER=anthropic`,
+   `LLM_API_KEY=<키>`. **비워 두면 mock 으로 동작하고 데모는 끝까지 돌아간다.**
+3. 배포 후 `https://<서비스>.onrender.com/api/health` 가 `{"status":"ok"}` 를 주는지 본다.
+
+**2. 프론트엔드 (Vercel)**
+
+1. Vercel → Add New Project → 이 저장소. **Root Directory 를 `frontend`** 로 지정한다.
+2. 환경변수 `NEXT_PUBLIC_API_BASE_URL` 에 1번의 백엔드 주소를 넣는다.
+   빌드 때 코드에 박히므로, 나중에 바꾸면 **재배포해야 반영된다.**
+
+**3. 서로를 알려준다**
+
+Render 의 `ALLOWED_ORIGINS` 에 Vercel 주소(`https://<프로젝트>.vercel.app`)를 넣고 재배포한다.
+이것을 빼먹으면 화면은 뜨는데 업로드에서 "백엔드 서버에 연결할 수 없습니다"만 나온다.
+
+### 배포판에서 달라지는 것
+
+- **저장이 인메모리다.** 서버가 재시작하면 업로드한 문서와 생성 결과가 사라진다.
+  Render 무료 요금제는 15분 놀면 잠들고, 다음 첫 요청이 1분 가까이 걸린다.
+- **원본/결과 슬라이드 이미지 대조가 꺼진다.** 설치된 PowerPoint 를 COM 으로 부르는
+  방식이라 리눅스 서버에는 없다. `/api/health` 의 `render_enabled` 가 `false` 가 되고
+  화면은 글자 대조로 되돌아간다. 이미지 대조를 보여줄 자리는 로컬 시연이다.
+- **인증이 없다.** 주소를 아는 사람은 누구나 문서를 올릴 수 있다. 사내 자료를 올리는
+  용도라면 Vercel 의 Password Protection 이나 Render 의 접근 제한을 함께 건다.
 
 ---
 

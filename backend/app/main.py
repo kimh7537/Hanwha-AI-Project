@@ -21,12 +21,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    # 배포하면 화면과 API 가 다른 도메인에 있다. 허용할 출처를 코드에 박아 두면 배포할
+    # 때마다 이 파일을 고쳐야 하므로 `ALLOWED_ORIGINS` 로 받는다 (docs/08-api-and-env.md).
+    allow_origins=get_settings().allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
