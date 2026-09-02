@@ -35,6 +35,17 @@ const DEFAULT_REQUEST: PresentationRequest = {
   slide_count: null,
 };
 
+/** 원본 장수를 기본값으로 쓸 수 있는 입력인지.
+ *
+ * PPTX 가 아니면 `page_count` 는 슬라이드가 아니라 쪽수라 "원본 그대로"의 뜻이 없고,
+ * planner 의 3~10장 범위를 벗어나는 원본은 그대로 지킬 수 없어 자동으로 넘긴다.
+ */
+function sourceSlideCount(document: DocumentResponse | null): number | null {
+  if (!document?.document.filename.toLowerCase().endsWith(".pptx")) return null;
+  const count = document.document.page_count;
+  return count >= 3 && count <= 10 ? count : null;
+}
+
 function toMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
@@ -59,7 +70,10 @@ export default function Page() {
     setUploading(true);
     setUploadError(null);
     try {
-      setDocument(await uploadDocument(file));
+      const uploaded = await uploadDocument(file);
+      setDocument(uploaded);
+      // 기본은 원본 장수 그대로. 조건 화면에서 자동·직접으로 바꿀 수 있다.
+      setRequest((current) => ({ ...current, slide_count: sourceSlideCount(uploaded) }));
     } catch (error) {
       setDocument(null);
       setUploadError(toMessage(error));
@@ -184,6 +198,7 @@ export default function Page() {
         <ConditionStep
           request={request}
           keywordText={keywordText}
+          sourceSlides={sourceSlideCount(document)}
           onChange={setRequest}
           onKeywordTextChange={setKeywordText}
           onBack={() => setStage("upload")}

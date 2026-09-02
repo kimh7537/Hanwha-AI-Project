@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type {
   Audience,
   DurationMinutes,
@@ -35,11 +36,36 @@ const AUDIENCE_DELTA: Record<Audience, number> = {
   customer: 0,
 };
 
-function previewSlideCount(request: PresentationRequest): number {
-  if (request.slide_count) return Math.max(3, Math.min(10, request.slide_count));
+const clamp = (count: number) => Math.max(3, Math.min(10, count));
+
+/** 사용자가 장수를 정하지 않았을 때 시간·청중 규칙이 내놓을 장수. */
+function autoSlideCount(request: PresentationRequest): number {
   const base = BASE_SLIDES[request.duration_minutes] ?? 5;
-  return Math.max(3, Math.min(10, base + AUDIENCE_DELTA[request.audience]));
+  return clamp(base + AUDIENCE_DELTA[request.audience]);
 }
+
+/** 장수를 어떻게 정하고 있는지.
+ *
+ * 대부분 `slide_count` 에서 파생되지만, 직접 입력한 값이 원본 장수와 같아지는 경우가 있어
+ * "직접 정하기"를 골랐다는 사실만 따로 들고 있는다.
+ */
+type SlideMode = "source" | "auto" | "manual";
+
+function slideMode(
+  request: PresentationRequest,
+  sourceSlides: number | null,
+  manual: boolean,
+): SlideMode {
+  if (request.slide_count === null) return "auto";
+  if (!manual && sourceSlides !== null && request.slide_count === sourceSlides) return "source";
+  return "manual";
+}
+
+const SLIDE_MODES: { value: SlideMode; label: string }[] = [
+  { value: "source", label: "원본 그대로" },
+  { value: "auto", label: "시간·청중에 맞춰" },
+  { value: "manual", label: "직접 정하기" },
+];
 
 function Choice<T extends string | number>({
   options,
@@ -104,6 +130,7 @@ function Choice<T extends string | number>({
 export function ConditionStep({
   request,
   keywordText,
+  sourceSlides,
   onChange,
   onKeywordTextChange,
   onBack,
@@ -111,6 +138,8 @@ export function ConditionStep({
 }: {
   request: PresentationRequest;
   keywordText: string;
+  /** 업로드한 원본의 장수. 그대로 쓸 수 없는 입력이면 null. */
+  sourceSlides: number | null;
   onChange: (next: PresentationRequest) => void;
   onKeywordTextChange: (next: string) => void;
   onBack: () => void;
@@ -120,7 +149,10 @@ export function ConditionStep({
     onChange({ ...request, ...partial });
   }
 
-  const preview = previewSlideCount(request);
+  const [manual, setManual] = useState(false);
+  const auto = autoSlideCount(request);
+  const mode = slideMode(request, sourceSlides, manual);
+  const preview = request.slide_count ? clamp(request.slide_count) : auto;
   const inputClass =
     "mt-2 w-full rounded-xl border border-line bg-surface-muted/60 px-3.5 py-2.5 text-sm outline-none transition-colors placeholder:text-muted/60 focus:border-accent";
 
@@ -147,9 +179,15 @@ export function ConditionStep({
           }))}
         />
 
-        {/* 조건을 바꾸는 즉시 장수가 움직이는 것을 보여 준다. */}
+        {/* 조건을 바꾸는 즉시 장수가 움직이는 것을 보여 준다.
+            기준이 되는 원본 장수를 왼쪽에 같이 두어야 "몇 장에서 몇 장이 되는지"가 읽힌다. */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/25 bg-accent-soft px-4 py-3">
           <p className="text-xs leading-relaxed text-muted">
+            {sourceSlides ? (
+              <>
+                원본 <span className="font-semibold text-foreground">{sourceSlides}장</span> ·{" "}
+              </>
+            ) : null}
             <span className="font-semibold text-accent">
               {AUDIENCE_LABELS[request.audience]}
             </span>
@@ -174,7 +212,8 @@ export function ConditionStep({
           label="발표 시간"
           columns={3}
           value={request.duration_minutes}
-          onChange={(duration_minutes) => patch({ duration_minutes, slide_count: null })}
+          // 장수는 아래에서 따로 고르므로 시간이 바뀌어도 그 선택을 지우지 않는다.
+          onChange={(duration_minutes) => patch({ duration_minutes })}
           options={DURATIONS.map((duration) => ({
             value: duration,
             label: DURATION_LABELS[duration],
@@ -189,30 +228,72 @@ export function ConditionStep({
           options={STYLES.map((style) => ({ value: style, label: STYLE_LABELS[style] }))}
         />
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label htmlFor="keywords" className="text-sm font-semibold">
-              필수 키워드
-            </label>
-            <p className="mt-1 text-xs text-muted">쉼표로 구분해 입력하세요.</p>
-            <input
-              id="keywords"
-              value={keywordText}
-              onChange={(event) => onKeywordTextChange(event.target.value)}
-              placeholder="정확도, 도입 효과"
-              className={inputClass}
-            />
+        <div>
+          <label htmlFor="keywords" className="text-sm font-semibold">
+            필수 키워드
+          </label>
+          <p className="mt-1 text-xs text-muted">쉼표로 구분해 입력하세요.</p>
+          <input
+            id="keywords"
+            value={keywordText}
+            onChange={(event) => onKeywordTextChange(event.target.value)}
+            placeholder="정확도, 도입 효과"
+            className={`${inputClass} sm:max-w-md`}
+          />
+        </div>
+
+        {/* 기준이 되는 원본 장수를 모르면 "몇 장으로 할지"를 고를 수가 없다.
+            원본을 그대로 쓰는 것이 기본이고, 자동·직접은 한 번 눌러 바꾼다. */}
+        <fieldset>
+          <legend className="text-sm font-semibold">슬라이드 수</legend>
+          <p className="mt-1 text-xs leading-relaxed text-muted">
+            {sourceSlides
+              ? `업로드한 원본은 ${sourceSlides}장입니다. 기본은 원본 장수를 그대로 씁니다.`
+              : "원본 장수를 그대로 쓸 수 없는 입력이라 시간과 청중에 맞춰 정합니다."}
+          </p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SLIDE_MODES.filter((option) => option.value !== "source" || sourceSlides).map(
+              (option) => {
+                const selected = option.value === mode;
+                const count =
+                  option.value === "source" ? sourceSlides : option.value === "auto" ? auto : null;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setManual(option.value === "manual");
+                      patch({
+                        slide_count:
+                          option.value === "source"
+                            ? sourceSlides
+                            : option.value === "auto"
+                              ? null
+                              : (request.slide_count ?? sourceSlides ?? auto),
+                      });
+                    }}
+                    className={`rounded-xl border px-4 py-2.5 text-left transition-all duration-300 ${
+                      selected
+                        ? "border-accent bg-accent-soft"
+                        : "border-line bg-surface-glass hover:-translate-y-0.5 hover:border-line-strong"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {count === null ? "3~10장 사이에서 지정" : `${count}장`}
+                    </span>
+                  </button>
+                );
+              },
+            )}
           </div>
 
-          <div>
-            <label htmlFor="slide-count" className="text-sm font-semibold">
-              슬라이드 수
-            </label>
-            <p className="mt-1 text-xs text-muted">
-              비워 두면 시간과 청중에 맞춰 자동으로 정합니다.
-            </p>
+          {mode === "manual" ? (
             <input
               id="slide-count"
+              aria-label="슬라이드 수 직접 입력"
               type="number"
               min={3}
               max={10}
@@ -223,10 +304,17 @@ export function ConditionStep({
                 })
               }
               placeholder={RECOMMENDED_SLIDES[request.duration_minutes]}
-              className={inputClass}
+              className={`${inputClass} sm:max-w-[10rem]`}
             />
-          </div>
-        </div>
+          ) : null}
+
+          {mode === "source" && sourceSlides !== auto ? (
+            <p className="mt-2 text-xs leading-relaxed text-muted">
+              시간·청중에 맡기면 {auto}장이 됩니다. 원본 장수를 유지하는 동안에는 청중을 바꿔도
+              장수가 그대로입니다.
+            </p>
+          ) : null}
+        </fieldset>
 
         <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface-muted/50 p-4 transition-colors hover:border-line-strong">
           <input
