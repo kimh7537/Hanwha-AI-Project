@@ -157,9 +157,6 @@ export function ResultView({
             >
               JSON
             </Button>
-            <Button className="px-4 py-2 text-xs" onClick={() => setComparing(true)}>
-              원본과 비교
-            </Button>
             <Button className="px-4 py-2 text-xs" onClick={onRestart}>
               다른 조건으로 다시 만들기
             </Button>
@@ -180,26 +177,40 @@ export function ResultView({
         </div>
       </Card>
 
-      <div
-        role="tablist"
-        className="glass sticky top-[57px] z-30 flex flex-wrap gap-1 rounded-2xl border border-line p-1.5"
-      >
-        {TABS.map((name) => (
-          <button
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
-              tab === name
-                ? "bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-[0_10px_26px_-14px_rgba(255,138,61,0.95)]"
-                : "text-muted hover:bg-surface-muted hover:text-foreground"
-            }`}
-          >
-            {name}
-          </button>
-        ))}
+      <div className="glass sticky top-[57px] z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-line p-1.5">
+        <div role="tablist" className="flex flex-wrap gap-1">
+          {TABS.map((name) => (
+            <button
+              key={name}
+              role="tab"
+              aria-selected={tab === name}
+              onClick={() => setTab(name)}
+              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
+                tab === name
+                  ? "bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-[0_10px_26px_-14px_rgba(255,138,61,0.95)]"
+                  : "text-muted hover:bg-surface-muted hover:text-foreground"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        {/* 다운로드 줄에 섞여 있으면 파일 저장 버튼으로 읽힌다. 이건 저장이 아니라 "보는" 기능이고
+         * 결과를 훑는 내내 손에 닿아야 해서, 스크롤을 따라오는 이 줄에 따로 세운다.
+         * 탭이 아니라 오버레이를 여는 버튼이므로 `role="tablist"` 밖이다. */}
+        <button
+          type="button"
+          onClick={() => setComparing(true)}
+          className="ml-auto flex items-center gap-1.5 rounded-xl border border-accent/45 bg-accent-soft px-3.5 py-2 text-xs font-semibold text-accent transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_12px_28px_-16px_rgba(255,138,61,0.9)] sm:text-sm"
+        >
+          <span aria-hidden>⇄</span>
+          원본과 비교
+        </button>
       </div>
+      <p className="-mt-1 px-1.5 text-[11px] leading-relaxed text-muted">
+        <span className="font-semibold text-foreground">원본과 비교</span> — 업로드한 원본과 생성된
+        슬라이드를 한 장씩 나란히 놓고, 달라진 자리를 빨간 네모로 표시합니다.
+      </p>
 
       {tab === "발표자료" ? (
         <SlidesPanel result={result} evidence={evidenceById} onSelectEvidence={setEvidenceId} />
