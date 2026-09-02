@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { ApiError, generatePresentation, uploadDocument, verifyPresentation } from "@/lib/api";
+import {
+  ApiError,
+  generatePresentation,
+  uploadDocument,
+  verifyPresentation,
+  warmUpBackend,
+} from "@/lib/api";
 import type {
   DocumentResponse,
   GenerateResponse,
@@ -79,6 +85,9 @@ function toMessage(error: unknown): string {
 }
 
 export default function Page() {
+  // 배포된 백엔드는 무료 요금제라 놀고 있으면 잠든다. 문서를 고르는 동안 깨워 둔다.
+  useEffect(warmUpBackend, []);
+
   const [stage, setStage] = useState<Stage>("upload");
   const [document, setDocument] = useState<DocumentResponse | null>(null);
   const [uploading, setUploading] = useState(false);

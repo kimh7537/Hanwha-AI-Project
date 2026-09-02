@@ -199,25 +199,30 @@ Browser
        → Chroma Cloud (선택)
 ```
 
-백엔드를 먼저 올린다. 프론트엔드는 빌드 시점에 백엔드 주소를 필요로 한다.
+백엔드를 먼저 올린다. 프론트엔드가 바라볼 주소가 정해져야 하기 때문이다.
 
 **1. 백엔드 (Render)** — 저장소 루트의 `render.yaml` 이 설계도다.
 
 1. Render → New → Blueprint → 이 저장소 선택. `render.yaml` 의 설정이 그대로 잡힌다.
+   서비스 이름은 `audiencedeck-api` 그대로 둔다 — 프론트엔드의 기본 백엔드 주소가 이것이다.
 2. 값을 물어보는 환경변수를 채운다. 실 LLM 을 쓸 때만 `LLM_PROVIDER=anthropic`,
    `LLM_API_KEY=<키>`. **비워 두면 mock 으로 동작하고 데모는 끝까지 돌아간다.**
+   `CHROMA_*` 는 무료 인스턴스(512MB)에서 임베딩 라이브러리가 메모리를 넘길 수 있어 비워 둔다.
 3. 배포 후 `https://<서비스>.onrender.com/api/health` 가 `{"status":"ok"}` 를 주는지 본다.
 
 **2. 프론트엔드 (Vercel)**
 
 1. Vercel → Add New Project → 이 저장소. **Root Directory 를 `frontend`** 로 지정한다.
-2. 환경변수 `NEXT_PUBLIC_API_BASE_URL` 에 1번의 백엔드 주소를 넣는다.
-   빌드 때 코드에 박히므로, 나중에 바꾸면 **재배포해야 반영된다.**
+2. 환경변수는 없어도 된다. `lib/api.ts` 의 `DEPLOYED_API` 가 기본 백엔드 주소이고,
+   `NEXT_PUBLIC_API_BASE_URL` 을 넣으면 그것이 이긴다. 백엔드 주소가 1번에서 달라졌다면
+   **환경변수보다 `DEPLOYED_API` 를 고치는 쪽이 낫다** — 환경변수는 빌드 때 박히는 값이라
+   한 번 빠뜨리면 화면은 멀쩡히 뜨고 업로드만 실패한다.
 
 **3. 서로를 알려준다**
 
 Render 의 `ALLOWED_ORIGINS` 에 Vercel 주소(`https://<프로젝트>.vercel.app`)를 넣고 재배포한다.
-이것을 빼먹으면 화면은 뜨는데 업로드에서 "백엔드 서버에 연결할 수 없습니다"만 나온다.
+`*.vercel.app` 은 `main.py` 의 정규식으로도 허용되므로 미리보기 주소는 이것 없이도 뜨지만,
+직접 도메인을 붙였다면 여기에 적어야 한다.
 
 ### 배포판에서 달라지는 것
 

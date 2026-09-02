@@ -9,8 +9,39 @@ import type {
   VerificationReport,
 } from "./types";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+/** 배포된 백엔드. Render 의 상주 프로세스라 인메모리 저장소가 유지된다. */
+const DEPLOYED_API = "https://audiencedeck-api.onrender.com";
+
+/**
+ * 백엔드 주소. 부를 때마다 정한다.
+ *
+ * 배포 주소를 코드에 둔 이유: `NEXT_PUBLIC_API_BASE_URL` 은 빌드 시점에 박히는 값이라
+ * Vercel 에서 한 번 빠뜨리면 화면은 멀쩡히 뜨고 업로드만 실패한다. 환경변수가 있으면
+ * 그것이 이기고, 없으면 로컬(localhost)은 로컬 서버를, 배포 화면은 배포 백엔드를 본다.
+ *
+ * 상수가 아니라 함수인 것은 서버 렌더링 때문이다. 모듈이 서버에서도 한 번 평가되는데
+ * 그때 `window` 가 없어 값이 굳으면 초기 HTML 과 브라우저의 주소가 어긋난다.
+ */
+function base(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+
+  const host = typeof window === "undefined" ? "" : window.location.hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === ""
+    ? "http://localhost:8000"
+    : DEPLOYED_API;
+}
+
+/**
+ * 잠들어 있는 무료 인스턴스를 미리 깨운다.
+ *
+ * Render 무료 요금제는 15분 놀면 잠들고 다음 첫 요청이 1분 가까이 걸린다. 그 1분을
+ * 업로드 버튼이 맞으면 화면이 멈춘 것으로 보인다. 파일을 고르는 동안 깨워 둔다.
+ * 실패해도 화면은 그대로 진행한다.
+ */
+export function warmUpBackend(): void {
+  void fetch(`${base()}/api/health`).catch(() => {});
+}
 
 export class ApiError extends Error {
   constructor(message: string) {
@@ -25,7 +56,7 @@ const OFFLINE_MESSAGE =
 async function send(path: string, init: RequestInit): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, init);
+    response = await fetch(`${base()}${path}`, init);
   } catch {
     throw new ApiError(OFFLINE_MESSAGE);
   }
@@ -59,7 +90,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
  */
 export async function fetchAudiencePlans(): Promise<AudiencePlansResponse | null> {
   try {
-    const response = await fetch(`${BASE_URL}/api/audiences`);
+    const response = await fetch(`${base()}/api/audiences`);
     if (!response.ok) return null;
     return (await response.json()) as AudiencePlansResponse;
   } catch {
@@ -76,7 +107,7 @@ export async function fetchPlanPreview(
   presentationRequest: PresentationRequest,
 ): Promise<PlanPreview | null> {
   try {
-    const response = await fetch(`${BASE_URL}/api/audiences/preview`, {
+    const response = await fetch(`${base()}/api/audiences/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(presentationRequest),
@@ -135,12 +166,12 @@ export async function fetchPresentationPptx(
  * 백엔드가 설치된 PowerPoint 로 굽는다. 못 굽는 PC 면 503 이 오고 화면은 글자 비교로 돌아간다.
  */
 export function documentSlideUrl(documentId: string, page: number): string {
-  return `${BASE_URL}/api/documents/${documentId}/slides/${page}`;
+  return `${base()}/api/documents/${documentId}/slides/${page}`;
 }
 
 /** 생성된 발표자료 슬라이드 한 장의 PNG 주소. `number` 는 발표용 덱 기준 1-based. */
 export function presentationSlideUrl(presentationId: string, number: number): string {
-  return `${BASE_URL}/api/presentations/${presentationId}/slides/${number}`;
+  return `${base()}/api/presentations/${presentationId}/slides/${number}`;
 }
 
 /** 슬라이드 위에 얹을 변경 표시 네모. 좌표는 0~1 비율이다. */
@@ -159,7 +190,7 @@ export async function fetchSlideDiff(
 ): Promise<DiffRegion[]> {
   try {
     const response = await fetch(
-      `${BASE_URL}/api/presentations/${presentationId}/slides/${number}/diff?page=${page}`,
+      `${base()}/api/presentations/${presentationId}/slides/${number}/diff?page=${page}`,
     );
     if (!response.ok) return [];
     return (await response.json()).regions ?? [];

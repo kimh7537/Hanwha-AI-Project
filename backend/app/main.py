@@ -24,6 +24,11 @@ app.add_middleware(
     # 배포하면 화면과 API 가 다른 도메인에 있다. 허용할 출처를 코드에 박아 두면 배포할
     # 때마다 이 파일을 고쳐야 하므로 `ALLOWED_ORIGINS` 로 받는다 (docs/08-api-and-env.md).
     allow_origins=get_settings().allowed_origins,
+    # Vercel 은 배포할 때마다 미리보기 주소를 새로 만든다(`...-git-<브랜치>-<계정>.vercel.app`).
+    # 그 주소를 미리 알 수 없어 `ALLOWED_ORIGINS` 로는 못 적는다. 여기서 함께 허용하지 않으면
+    # 심사자에게 보낸 미리보기 링크만 "백엔드에 연결할 수 없습니다"가 뜬다.
+    # 이 API 는 인증이 없고 비밀을 돌려주지도 않으므로 CORS 가 보안 경계가 아니다.
+    allow_origin_regex=r"https://[A-Za-z0-9-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
