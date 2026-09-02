@@ -228,9 +228,11 @@ Render 의 `ALLOWED_ORIGINS` 에 Vercel 주소(`https://<프로젝트>.vercel.ap
 
 - **저장이 인메모리다.** 서버가 재시작하면 업로드한 문서와 생성 결과가 사라진다.
   Render 무료 요금제는 15분 놀면 잠들고, 다음 첫 요청이 1분 가까이 걸린다.
-- **원본/결과 슬라이드 이미지 대조가 꺼진다.** 설치된 PowerPoint 를 COM 으로 부르는
-  방식이라 리눅스 서버에는 없다. `/api/health` 의 `render_enabled` 가 `false` 가 되고
-  화면은 글자 대조로 되돌아간다. 이미지 대조를 보여줄 자리는 로컬 시연이다.
+- **원본/결과 슬라이드 이미지는 LibreOffice 가 굽는다.** 윈도우에서는 PowerPoint 를 COM 으로
+  부르지만 리눅스 서버에는 없어서, `backend/Dockerfile` 이 `libreoffice-impress` 와 한글 글꼴을
+  함께 담는다(그래서 런타임이 Docker 다). 글꼴 대체 때문에 자간·줄바꿈이 로컬과 다르게
+  보일 수 있다. 무료 인스턴스(512MB)에서 변환이 메모리를 넘기면 그 요청만 503 이 되고
+  화면은 글자 대조로 되돌아간다 — 앱은 계속 동작한다.
 - **인증이 없다.** 주소를 아는 사람은 누구나 문서를 올릴 수 있다. 사내 자료를 올리는
   용도라면 Vercel 의 Password Protection 이나 Render 의 접근 제한을 함께 건다.
 

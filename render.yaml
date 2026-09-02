@@ -7,17 +7,17 @@
 services:
   - type: web
     name: audiencedeck-api
-    runtime: python
+    # 파이썬 런타임이 아니라 Docker 인 이유: 원본↔결과 슬라이드 이미지 대조가 LibreOffice 를
+    # 필요로 한다. apt 패키지를 넣을 수 있는 방법이 이미지뿐이다(backend/Dockerfile).
+    # 파이썬 버전(3.12)도 그 이미지가 고정하므로 PYTHON_VERSION 이 필요 없다.
+    runtime: docker
     plan: free
     region: singapore
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
-      # 로컬 개발과 같은 3.12. pymupdf / python-pptx 휠이 이 버전으로 검증돼 있다.
-      - key: PYTHON_VERSION
-        value: "3.12.7"
       # 아래는 값을 저장소에 두지 않는다(sync: false → 대시보드에서 직접 입력).
       # API 키는 백엔드에만 둔다는 규칙이 배포에서도 그대로다.
       - key: LLM_PROVIDER

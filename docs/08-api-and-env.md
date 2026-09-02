@@ -47,9 +47,10 @@ python-pptx 가 없는 환경에서는 **503 + 한국어 안내**로 끝내고 �
 `GET /api/health` 는 provider 모드(`mock` / `anthropic` / `openai`)를 함께 반환해
 데모 중 어떤 경로로 동작 중인지 화면에서 확인할 수 있게 한다.
 
-슬라이드 PNG 는 설치된 PowerPoint 를 COM 으로 불러 굽는다(`services/render_slides.py`).
-못 굽는 환경이면 **503 + 한국어 안내**로 끝내고 화면은 글자 비교로 되돌아간다 —
-`/api/health` 의 `render_enabled` 가 이 가능 여부를 알려준다. 렌더링은 데모의 전제가 아니다.
+슬라이드 PNG 는 윈도우에서는 설치된 PowerPoint 를 COM 으로, 리눅스(배포)에서는 LibreOffice 로
+PDF 를 거쳐 굽는다(`services/render_slides.py`). 못 굽는 환경이면 **503 + 한국어 안내**로
+끝내고 화면은 글자 비교로 되돌아간다 — `/api/health` 의 `render_enabled` 가 이 가능 여부를
+알려준다. 렌더링은 데모의 전제가 아니다.
 
 ## 환경변수
 
