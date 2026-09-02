@@ -38,6 +38,16 @@ class Style(str, Enum):
     FRIENDLY = "friendly"
 
 
+class Interest(str, Enum):
+    """청중이 이 발표에서 듣고 싶어 하는 축. 같은 원문에서 무엇을 앞으로 당길지를 정한다."""
+
+    TECHNOLOGY = "technology"
+    PERFORMANCE = "performance"
+    COST = "cost"
+    SAFETY = "safety"
+    SCHEDULE = "schedule"
+
+
 class Severity(str, Enum):
     INFO = "info"
     WARNING = "warning"
@@ -64,14 +74,51 @@ class IssueType(str, Enum):
 # --------------------------------------------------------------------------
 
 
+class AudienceProfile(BaseModel):
+    """`Audience` 가 '누구'라면 이쪽은 '어느 정도로, 무엇에 관심 있는 사람'이다.
+
+    청중 하나만으로는 같은 '고객사'라도 기술 이해도와 관심 축이 전혀 다른 자리를 구분할 수
+    없다. 이 값들은 사실을 바꾸지 않고, 어떤 사실을 앞으로 당기고 얼마나 풀어 쓸지를 정한다.
+    """
+
+    #: 기술 이해도 1(낮음) ~ 5(높음). 용어 풀이 개수와 설명 깊이를 정한다.
+    expertise: int = Field(default=3, ge=1, le=5)
+    #: 관심 영역. 비어 있으면 청중 기본 구성만 따른다.
+    interests: list[Interest] = Field(default_factory=list)
+    #: 이미 알고 있는 것. 아는 내용을 다시 설명하지 않도록 순위를 낮추는 데 쓴다.
+    prior_knowledge: str = ""
+
+
+class MessageControl(BaseModel):
+    """발표자가 발표의 의도를 직접 통제한다.
+
+    `emphasize`(강조)에 해당하는 값은 `PresentationRequest.keywords` 다. 그 필드는 이미
+    "덱에 최소 1회 등장하고 검증에서 확인한다"는 뜻으로 분석·검색·검증에 물려 있어서,
+    이름만 이쪽으로 옮기면 그 배선을 전부 끊게 된다. 화면에서는 둘을 한 묶음으로 보여준다.
+
+    여기의 어떤 값도 원문에 없는 사실을 만들지 않는다. 순위를 올리고 내릴 뿐이고,
+    지켜지지 않은 것은 검증 리포트가 잡는다.
+    """
+
+    #: 이 발표로 반드시 남겨야 할 한 문장. 사실이 아니라 의도다.
+    must_convey: str = ""
+    #: 덜 다루고 싶은 주제. 삭제가 아니라 뒤로 민다 — 사실을 지우지는 않는다.
+    minimize: list[str] = Field(default_factory=list)
+    #: 쓰지 말아야 할 표현. 고르는 단계에서 피하고, 남으면 검증이 경고한다.
+    banned: list[str] = Field(default_factory=list)
+
+
 class PresentationRequest(BaseModel):
     audience: Audience
     purpose: Purpose
     duration_minutes: Literal[3, 5, 10] = 5
+    #: 강조 키워드. 덱에 최소 1회 등장해야 하고 검증에서 확인한다 (`MessageControl` 참고).
     keywords: list[str] = Field(default_factory=list)
     style: Style = Style.PROFESSIONAL
     preserve_original_terms: bool = True
     slide_count: Optional[int] = None
+    profile: AudienceProfile = Field(default_factory=AudienceProfile)
+    message: MessageControl = Field(default_factory=MessageControl)
 
 
 # --------------------------------------------------------------------------

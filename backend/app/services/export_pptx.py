@@ -24,7 +24,7 @@ from app.services import labels
 try:  # pragma: no cover - 설치 환경에서는 항상 성공한다
     from pptx import Presentation
     from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.enum.shapes import MSO_SHAPE, PP_PLACEHOLDER
     from pptx.enum.text import PP_ALIGN
     from pptx.oxml.ns import qn
     from pptx.oxml.xmlchemy import OxmlElement
@@ -441,34 +441,87 @@ def _speaker_notes(result: GenerateResponse, slide_data: Slide) -> str:
 # --------------------------------------------------------------------------
 
 
+def _text_shapes(slide) -> list:
+    """글을 갈아 끼울 수 있는 도형들.
+
+    표(GraphicFrame)와 그림에는 text_frame 이 없어 저절로 빠진다 — 이 경로는 원본의 표·이미지를
+    건드리지 않는다. 쪽번호·날짜·바닥글 placeholder 는 원본이 설계한 머리글/꼬리글이라 내용이
+    아니므로 남긴다.
+    """
+    chrome = {
+        PP_PLACEHOLDER.SLIDE_NUMBER,
+        PP_PLACEHOLDER.DATE,
+        PP_PLACEHOLDER.FOOTER,
+    }
+    shapes = []
+    for shape in slide.shapes:
+        if not getattr(shape, "has_text_frame", False):
+            continue
+        if (shape.width or 0) * (shape.height or 0) <= 0:
+            continue
+        if shape.is_placeholder and shape.placeholder_format.type in chrome:
+            continue
+        shapes.append(shape)
+    return shapes
+
+
 def _title_shape(slide):
+    """제목을 넣을 도형.
+
+    `shapes.title` 이 없는 원본이 흔하다 (빈 레이아웃 위에 텍스트 상자로 직접 만든 자료).
+    그때 None 을 돌려주면 생성된 제목이 어디에도 들어가지 않고 원본 제목이 그대로 남으므로,
+    맨 위 텍스트 상자를 제목 자리로 본다. 본문이 갈 곳은 남겨 둬야 하니 상자가 하나뿐이거나
+    맨 위 상자가 곧 가장 큰 상자면 제목으로 쓰지 않는다.
+    """
     try:
-        return slide.shapes.title
+        title = slide.shapes.title
     except (AttributeError, ValueError):  # 제목 자리가 없는 레이아웃
+        title = None
+    if title is not None:
+        return title
+
+    shapes = _text_shapes(slide)
+    if len(shapes) < 2:
         return None
+    topmost = min(shapes, key=lambda shape: (shape.top or 0))
+    largest = max(shapes, key=lambda shape: (shape.width or 0) * (shape.height or 0))
+    return None if topmost.shape_id == largest.shape_id else topmost
 
 
 def _body_shape(slide, title):
     """본문 글을 갈아 끼울 도형. 제목을 뺀 텍스트 도형 중 가장 넓은 것.
-
-    표(GraphicFrame)와 그림에는 text_frame 이 없어 후보에서 저절로 빠진다. 즉 이 경로는
-    원본의 표·이미지를 건드리지 않는다.
 
     제목은 `shape_id` 로 거른다 — `shapes.title` 은 호출할 때마다 새 proxy 를 만들어
     `is` 비교가 항상 참이 되고, 그러면 제목 상자에 본문이 들어간다.
     """
     title_id = title.shape_id if title is not None else None
     # ponytail: 면적 최댓값 휴리스틱. 원본에 더 큰 장식용 텍스트 상자가 있으면 그쪽을 고른다.
-    candidates = [
-        shape
-        for shape in slide.shapes
-        if shape.shape_id != title_id
-        and getattr(shape, "has_text_frame", False)
-        and (shape.width or 0) * (shape.height or 0) > 0
-    ]
+    candidates = [shape for shape in _text_shapes(slide) if shape.shape_id != title_id]
     if not candidates:
         return None
     return max(candidates, key=lambda shape: shape.width * shape.height)
+
+
+def _clear_leftover_text(slide, written: set[int]) -> None:
+    """글을 갈아 끼우지 않은 텍스트 상자를 비운다.
+
+    원본 슬라이드에 텍스트 상자가 여럿이면(좌우 2단, 하단 주석 등) 예전에는 가장 큰 하나만
+    바뀌고 나머지에 **원본 문서의 문장이 그대로 남았다.** 검증을 마친 결과 옆에 검증하지 않은
+    원문이 섞이고, 새로 넣은 글과 겹쳐 보인다.
+
+    도형 자체는 지우지 않는다 — 지우면 그룹·정렬이 틀어지고 원본 형식을 지킨다는 이 경로의
+    목적이 무너진다. 빈 텍스트 상자는 화면에 아무것도 그리지 않는다.
+
+    그룹 안의 글은 건드리지 않는다 (`slide.shapes` 는 그룹을 하나로 본다). 그룹은 대개 도해나
+    로고라 그 안의 글자가 그림의 일부이고, 비우면 도형이 망가진다. 그런 원본에 원문 문장이
+    남을 수 있는데, 지금은 그림을 지키는 쪽을 택했다.
+    """
+    for shape in _text_shapes(slide):
+        if shape.shape_id in written:
+            continue
+        if not shape.text_frame.text.strip():
+            continue
+        shape.text_frame.clear()
 
 
 def _first_run_rPr(frame):
@@ -479,24 +532,50 @@ def _first_run_rPr(frame):
     return None
 
 
-def _fit_size(base: float | None, lines: list[str]) -> float | None:
-    """원본 글자 크기를 기준으로 넘칠 것 같을 때만 줄인다. 문장은 자르지 않는다."""
-    total = sum(len(line) for line in lines)
-    if base is None:
-        # 크기를 레이아웃에서 물려받는 원본. 짧으면 건드리지 않는 편이 형식을 지킨다.
-        return 14 if total > 220 or len(lines) > 5 else None
-    if total > 360 or len(lines) > 6:
-        return max(base - 5, 10)
-    if total > 220:
-        return max(base - 3, 11)
-    return base
+def _fit_size(
+    base: float | None, lines: list[str], shape=None, *, assumed: float = 18
+) -> float | None:
+    """이 도형 안에 들어가는 글자 크기. 원본 크기보다 키우지 않고, 넘칠 때만 줄인다.
+
+    예전에는 글자 수만 보고 정해서 좁은 상자에서는 그대로 넘쳤다 — 5.8인치 상자든 12인치
+    상자든 같은 크기를 내주니 당연한 결과다. 문장을 자르지 않는 것이 원칙이라
+    (docs/04-slide-planner.md) 줄일 수 있는 것은 글자 크기뿐이다.
+
+    `base` 가 None 이면 원본이 크기를 레이아웃에서 물려받는 경우다. 물려받은 값이 얼마인지
+    python-pptx 로는 알 수 없어, 넘치지 않을 크기를 명시한다 — 형식을 조금 덮어쓰더라도
+    글이 상자 밖으로 나가는 것보다 낫다.
+    """
+    if shape is None:  # 도형을 모르면 예전처럼 글자 수로만 어림잡는다
+        total = sum(len(line) for line in lines)
+        if base is None:
+            return 14 if total > 220 or len(lines) > 5 else None
+        return max(base - 5, 10) if total > 360 else base
+
+    # 텍스트 프레임의 기본 안쪽 여백(좌우 0.1in, 상하 0.05in)을 뺀 실제 글 자리
+    width = (shape.width or 0) / _EMU_PER_INCH - 0.2
+    height = (shape.height or 0) / _EMU_PER_INCH - 0.1
+    if width <= 0.5 or height <= 0.2:
+        return base
+
+    size = base if base else assumed
+    while size > 9 and _text_height(lines, size, width, space_after=4) > height:
+        size -= 1
+
+    if base is not None:
+        return min(size, base)
+    # 물려받은 크기로도 충분한지 알 수 없으므로, 줄일 필요가 없을 때만 원본에 맡긴다.
+    return None if size >= assumed else size
 
 
-def _replace_lines(frame, lines: list[str], *, bold_first: bool = False) -> None:
+def _replace_lines(
+    frame, lines: list[str], *, bold_first: bool = False, shape=None, assumed: float = 18
+) -> None:
     """텍스트 프레임의 글만 바꾼다. 첫 run 의 글꼴과 첫 문단의 글머리 서식을 물려준다."""
     rPr = _first_run_rPr(frame)
     raw_size = rPr.get("sz") if rPr is not None else None
-    size = _fit_size(int(raw_size) / 100 if raw_size else None, lines)
+    size = _fit_size(
+        int(raw_size) / 100 if raw_size else None, lines, shape, assumed=assumed
+    )
 
     frame.word_wrap = True
     frame.clear()
@@ -550,15 +629,27 @@ def _rewrite_slide(
     글을 놓을 자리를 못 찾으면 False 를 돌려주고, 호출부가 그 슬라이드를 새로 그린다.
     """
     title = _title_shape(slide)
+    # 글을 실제로 갈아 끼운 도형. 나머지에 남은 원본 문장은 아래에서 비운다.
+    written: set[int] = set()
+
     if title is not None and slide_data.title:
-        _replace_lines(title.text_frame, [slide_data.title])
+        _replace_lines(title.text_frame, [slide_data.title], shape=title, assumed=28)
+        written.add(title.shape_id)
 
     lines = ([slide_data.takeaway] if slide_data.takeaway else []) + list(slide_data.bullets)
     body = _body_shape(slide, title)
 
     if lines and body is not None:
-        _replace_lines(body.text_frame, lines, bold_first=bool(slide_data.takeaway))
-    elif lines:
+        _replace_lines(
+            body.text_frame, lines, bold_first=bool(slide_data.takeaway), shape=body
+        )
+        written.add(body.shape_id)
+
+    # 갈아 끼우지 않은 상자에 남은 원본 문장을 비운다. 빈 구간을 찾기 전에 비워야 그 상자가
+    # 차지하던 자리도 빈 자리로 잡힌다.
+    _clear_leftover_text(slide, written)
+
+    if lines and body is None:
         band = _free_band(slide, h)
         if band is None:
             return False

@@ -6,11 +6,14 @@ import type {
   Audience,
   GenerateResponse,
   PageContent,
+  PresentationRequest,
   SourceEvidence,
   VerificationReport,
 } from "@/lib/types";
 import {
   AUDIENCE_LABELS,
+  EXPERTISE_LABELS,
+  INTEREST_LABELS,
   ISSUE_TYPE_LABELS,
   PURPOSE_LABELS,
   STATUS_DESCRIPTIONS,
@@ -111,6 +114,10 @@ export function ResultView({
             <Stat label="스타일" value={STYLE_LABELS[result.request.style]} />
             <Stat label="슬라이드" value={`${result.slide_deck.slides.length}장`} />
           </div>
+
+          {/* 프로파일·메시지 통제를 지정했으면 그대로 되짚는다. 무엇을 주고 받은 결과인지
+              한 화면에서 확인되지 않으면 그 입력칸은 장식으로 읽힌다. */}
+          <ProfileSummary request={result.request} />
 
           {result.meta.fallback_used ? (
             <p className="mt-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-xs leading-relaxed text-warn">
@@ -467,11 +474,45 @@ function SlidesPanel({
             >
               ✦
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <Kicker>AI 구성 전략</Kicker>
               <p className="mt-2 text-sm leading-relaxed">{result.slide_deck.strategy}</p>
-              <p className="mt-2.5 text-xs leading-relaxed text-muted">
-                같은 원문이라도 청중이 달라지면 무엇을 넣고 뺄지, 몇 장으로 나눌지가 함께 바뀝니다.
+
+              {/* 조건 화면이 생성 전에 예고한 것과 같은 뼈대를, 이번에는 실제로 만들어진
+                  제목으로 되짚는다. 예고와 결과가 같은 모양이어야 "구성을 다시 설계한다"는
+                  말이 화면에서 확인된다. */}
+              <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                {AUDIENCE_LABELS[result.request.audience]}에게 실제로 만들어진 순서
+              </p>
+              <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+                {result.slide_deck.slides.map((slide, index) => (
+                  <li key={slide.id} className="flex items-center gap-1.5">
+                    {index > 0 ? (
+                      <span aria-hidden className="text-xs text-muted">
+                        →
+                      </span>
+                    ) : null}
+                    <span className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-muted/70 px-2.5 py-1 text-xs font-medium">
+                      <span aria-hidden className="font-mono text-[10px] text-accent">
+                        {index + 1}
+                      </span>
+                      {slide.title}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                용어 풀이{" "}
+                <span className="font-semibold text-foreground">
+                  {result.audience_content.glossary.length}개
+                </span>
+                {" · "}슬라이드{" "}
+                <span className="font-semibold text-foreground">
+                  {result.slide_deck.slides.length}장
+                </span>
+                . 같은 원문이라도 청중이 달라지면 무엇을 넣고 뺄지, 어떤 순서로 둘지, 몇 장으로
+                나눌지가 함께 바뀝니다.
               </p>
             </div>
           </div>
@@ -724,5 +765,59 @@ function VerificationPanel({
         발표자에게 있습니다.
       </p>
     </div>
+  );
+}
+
+/** 지정한 청중 프로파일·메시지 통제를 결과 화면에서 되짚는다.
+ *
+ * 아무것도 지정하지 않았으면 아무것도 그리지 않는다 — 기본값을 늘어놓으면 조건을 실제로
+ * 준 경우와 구분되지 않는다.
+ */
+function ProfileSummary({ request }: { request: PresentationRequest }) {
+  const { profile, message } = request;
+  const chips: { label: string; value: string }[] = [];
+
+  if (profile.expertise !== 3) {
+    chips.push({
+      label: "기술 이해도",
+      value: `${EXPERTISE_LABELS[profile.expertise]} (${profile.expertise}/5)`,
+    });
+  }
+  if (profile.interests.length > 0) {
+    chips.push({
+      label: "관심 영역",
+      value: profile.interests.map((item) => INTEREST_LABELS[item]).join(" · "),
+    });
+  }
+  if (profile.prior_knowledge) {
+    chips.push({ label: "이미 아는 것", value: profile.prior_knowledge });
+  }
+  if (message.must_convey) {
+    chips.push({ label: "반드시 전달", value: message.must_convey });
+  }
+  if (request.keywords.length > 0) {
+    chips.push({ label: "강조", value: request.keywords.join(" · ") });
+  }
+  if (message.minimize.length > 0) {
+    chips.push({ label: "최소화", value: message.minimize.join(" · ") });
+  }
+  if (message.banned.length > 0) {
+    chips.push({ label: "사용 금지", value: message.banned.join(" · ") });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <dl className="mt-3 flex flex-wrap gap-2">
+      {chips.map((chip) => (
+        <div
+          key={chip.label}
+          className="flex items-baseline gap-1.5 rounded-lg border border-line bg-surface-muted/60 px-2.5 py-1"
+        >
+          <dt className="text-[10px] uppercase tracking-wider text-muted">{chip.label}</dt>
+          <dd className="text-xs font-medium">{chip.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

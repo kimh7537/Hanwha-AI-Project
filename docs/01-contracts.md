@@ -30,11 +30,46 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
   "keywords": ["정확도", "도입 효과"],
   "style": "persuasive",
   "preserve_original_terms": true,
-  "slide_count": 5
+  "slide_count": 5,
+  "profile": {
+    "expertise": 2,
+    "interests": ["performance", "cost", "safety"],
+    "prior_knowledge": "기본적인 제품 개념은 이해"
+  },
+  "message": {
+    "must_convey": "기존 대비 운용 효율이 좋아진다",
+    "minimize": ["복잡한 기술적 세부사항"],
+    "banned": ["압도적", "세계 최고"]
+  }
 }
 ```
 
 `slide_count`가 null이면 `duration_minutes`로 자동 추천(3분→3~4, 5분→5, 10분→7~8).
+
+### profile — 청중 프로파일
+
+`audience`가 '누구'라면 `profile`은 '어느 정도로, 무엇에 관심 있는 사람'이다. 같은 고객사라도
+기술 이해도와 관심 축이 다르면 실을 문장이 달라진다.
+
+| 필드 | 값 | 효과 |
+|---|---|---|
+| `expertise` | 1~5 (기본 3) | 용어 풀이 개수와 한 항목당 문장 수. 3이 청중 기본값 |
+| `interests` | `technology` `performance` `cost` `safety` `schedule` | 해당 축의 사실을 각 항목 안에서 앞으로 |
+| `prior_knowledge` | 자유 입력 | 여기 적힌 내용과 겹치는 문장은 뒤로 |
+
+### message — 메시지 통제
+
+발표자가 발표의 의도를 직접 통제한다. **어떤 값도 원문에 없는 사실을 만들지 않는다.**
+순위를 올리고 내릴 뿐이고, 지켜지지 않은 것은 `VerificationReport`가 잡는다.
+
+| 필드 | 값 | 효과 |
+|---|---|---|
+| `must_convey` | 한 문장 | 이 메시지를 뒷받침하는 원문 사실을 앞으로. 덱에서 확인되지 않으면 검증이 `omission` 경고 |
+| `minimize` | 주제 목록 | 감점해 뒤로 민다. 삭제하지 않는다 |
+| `banned` | 표현 목록 | 고르는 단계에서 회피하고, 남으면 검증이 `sensitive_info` 경고 |
+
+화면의 **강조**는 `message`가 아니라 `keywords`에 담긴다 — 그 필드가 이미 "덱에 최소 1회
+등장하고 검증에서 확인한다"는 뜻으로 분석·검색·검증에 물려 있어서다. 화면에서는 한 묶음으로 본다.
 
 ## Document / Chunk
 

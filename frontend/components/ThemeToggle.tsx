@@ -1,17 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 /** 다크/라이트 전환. 색은 전부 CSS 토큰에서 나오므로 여기서는 `<html data-theme>` 만 바꾼다.
  *
  * 첫 그림에서 깜빡이지 않도록 저장값 적용은 `app/layout.tsx` 의 인라인 스크립트가 먼저 한다.
- * 이 컴포넌트는 그 결과를 읽어 라벨을 맞춘다 (서버는 항상 다크로 그리므로 상태 초기값도 다크).
+ * 이 컴포넌트는 라벨을 맞추고, 아래처럼 값을 다시 입힌다 (서버는 항상 다크로 그린다).
  */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
-  useEffect(() => {
-    setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+  // 개발 모드의 StrictMode 재마운트에서 React 는 `<html>` 의 속성을 JSX 가 관리하는 것만
+  // 남기고 지운다 — 인라인 스크립트가 넣은 라이트가 그때 날아간다. 저장값에서 다시 입힌다.
+  // 운영 빌드에서는 재마운트가 없어 아래는 사실상 no-op 다.
+  // `useEffect` 가 아니라 `useLayoutEffect` 인 이유는 그림 전에 돌아야 깜빡이지 않아서다.
+  useLayoutEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch {
+      // 저장이 막힌 환경에서는 기본값(다크)으로 둔다.
+    }
+    const next = stored === "light" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
   }, []);
 
   function toggle() {

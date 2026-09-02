@@ -33,6 +33,10 @@ const DEFAULT_REQUEST: PresentationRequest = {
   style: "persuasive",
   preserve_original_terms: true,
   slide_count: null,
+  // 기본값은 "아무것도 지정하지 않음"이다. 이해도 3 이 청중 기본값 그대로를 뜻하므로
+  // 프로파일을 건드리지 않은 요청은 이 기능이 생기기 전과 같은 구성을 낸다.
+  profile: { expertise: 3, interests: [], prior_knowledge: "" },
+  message: { must_convey: "", minimize: [], banned: [] },
 };
 
 /** generate 안의 각 단계가 시작될 무렵(ms). 문서 분석 → 청중 변환 → 슬라이드 설계 → 발표 지원.

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { InlineScript } from "@/components/InlineScript";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import "./globals.css";
 
@@ -28,12 +29,18 @@ const APPLY_THEME = `try{if(localStorage.getItem("theme")==="light"){document.do
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // 서버는 늘 다크로 그리고 위 스크립트가 첫 그림 전에 라이트로 바꾼다. 그래서 하이드레이션
+    // 시점의 DOM 은 서버 HTML 과 다를 수밖에 없다 — `suppressHydrationWarning` 은 그 차이를
+    // 오류로 보지 말고 DOM 을 그대로 두라는 뜻이다. 없으면 React 가 트리를 다시 그리며
+    // 스크립트가 넣은 값이 날아간다.
     <html
       lang="ko"
+      data-theme="dark"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: APPLY_THEME }} />
+        <InlineScript html={APPLY_THEME} />
       </head>
       <body className="flex min-h-full flex-col">
         <header className="sticky top-0 z-40 border-b border-line bg-background/70 backdrop-blur-xl">

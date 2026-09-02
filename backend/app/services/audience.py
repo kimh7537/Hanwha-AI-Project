@@ -20,7 +20,7 @@ from app.models.contracts import (
     Style,
 )
 from app.prompts import audience as audience_prompt
-from app.services import textutil
+from app.services import profile, textutil
 from app.services.evidence import inherit_refs, valid_refs
 
 STAGE = "청중 변환"
@@ -45,6 +45,76 @@ _EMPHASIS: dict[Audience, list[str]] = {
     Audience.EXECUTIVE: ["도입 효과", "리스크와 전제 조건", "의사결정에 필요한 판단 근거"],
     Audience.CUSTOMER: ["고객이 얻는 가치", "적용 시 달라지는 점", "확인이 필요한 전제"],
 }
+
+# 청중별 이야기 순서. 이 프로젝트의 주장("같은 원문에서 누구에게 무엇을 얼마나 보여줄지를
+# 다시 설계한다")이 코드에서 성립하는 자리다. 청중이 바뀌면 문장이 아니라 이 목록이 통째로
+# 바뀐다.
+#
+# 이 값은 세 곳에서 함께 쓰인다. 갈라지면 화면이 실제로 하지 않는 일을 말하게 된다.
+#   1) 아래 `transform_heuristic` 이 만드는 explanations 의 순서 (tests/test_audience_storyline.py)
+#   2) LLM 경로에 주는 구성 지시 (prompts/audience.py)
+#   3) 조건 화면의 미리보기 (/api/audiences -> ConditionStep)
+AUDIENCE_STORYLINE: dict[Audience, list[str]] = {
+    Audience.NEWCOMER: [
+        "무엇을 하는 기술인가",
+        "왜 필요한가",
+        "어떻게 동작하나",
+        "기억해야 할 조건",
+    ],
+    Audience.PRACTITIONER: [
+        "기술 구성",
+        "성능과 측정 조건",
+        "적용 조건과 제약",
+    ],
+    Audience.EXECUTIVE: [
+        "한 줄 결론",
+        "도입 효과",
+        "리스크와 전제 조건",
+        "판단에 필요한 기술 요약",
+    ],
+    Audience.CUSTOMER: [
+        "제공하는 가치",
+        "적용 효과",
+        "동작 방식",
+        "적용 전 확인이 필요한 조건",
+    ],
+}
+
+# 그 순서를 고른 이유. 화면의 청중 카드에 그대로 나가므로, 코드가 실제로 하는 일만 적는다 —
+# 여기에 실제보다 센 말을 적으면 그 자체가 근거 없는 주장이 된다(docs/10-quality-safety.md).
+AUDIENCE_LEADS: dict[Audience, str] = {
+    Audience.NEWCOMER: "배경과 용어부터 쌓아 올립니다",
+    Audience.PRACTITIONER: "구성·성능에 이어 적용 조건을 하나도 빼지 않습니다",
+    Audience.EXECUTIVE: "결론을 맨 앞에 두고 효과와 리스크를 붙입니다",
+    Audience.CUSTOMER: "고객이 얻는 가치와 달라지는 점을 앞세웁니다",
+}
+
+# 용어 풀이를 몇 개까지 싣는가. None 은 전부다. 신입에게 가장 많이, 임원에게 아예 없다 —
+# "무엇을 얼마나 보여줄지"가 청중마다 다르다는 주장의 가장 단순한 증거라 화면에도 나간다.
+AUDIENCE_GLOSSARY_LIMIT: dict[Audience, int | None] = {
+    Audience.NEWCOMER: None,
+    Audience.PRACTITIONER: 2,
+    Audience.EXECUTIVE: 0,
+    Audience.CUSTOMER: 2,
+}
+
+AUDIENCE_TRIMS: dict[Audience, str] = {
+    Audience.NEWCOMER: "성능 수치와 제약은 최소한만, 대신 용어 풀이를 전부 싣습니다",
+    Audience.PRACTITIONER: "배경 설명을 덜어내고 용어 풀이는 2개로 줄입니다",
+    Audience.EXECUTIVE: "기술 상세를 판단에 필요한 만큼으로 줄이고 용어 풀이는 넣지 않습니다",
+    Audience.CUSTOMER: "내부 정보로 보이는 문장은 덜어내고 경고로 남깁니다",
+}
+
+
+def resolved_glossary_limit(request: PresentationRequest) -> int | None:
+    """이번 요청에서 실제로 실을 용어 풀이 개수. 청중 기본에 이해도를 반영한 값이다.
+
+    조건 화면이 생성 전에 이 값을 보여주므로(`/api/audiences/preview`) 두 경로 모두 이 함수를
+    거쳐야 한다 — LLM 경로만 다른 개수를 내면 화면이 예고한 숫자가 틀린 말이 된다.
+    """
+    return profile.resolve_glossary_limit(
+        AUDIENCE_GLOSSARY_LIMIT[request.audience], request.profile.expertise
+    )
 
 
 _strip_english_gloss = textutil.strip_english_gloss
@@ -102,40 +172,51 @@ def transform_heuristic(
     effects = _effect_numbers(analysis)
 
     def add(topic: str, sentences: list[str], refs: list[str], limit: int = 3) -> None:
-        item = _explanation(topic, sentences, refs, request, limit)
+        # 뼈대(topic)는 청중이 정하고, 그 안에 무엇을 먼저 담을지는 프로파일·메시지 통제가
+        # 정한다. 문장을 만들거나 지우지 않고 순서만 바꾼다 — 분량이 모자라 잘릴 때
+        # 관심 밖이거나 최소화 요청에 걸린 문장이 먼저 빠진다.
+        ranked = profile.rank(sentences, request)
+        depth = profile.resolve_depth(limit, request.profile.expertise)
+        item = _explanation(topic, ranked, refs, request, depth)
         if item:
             explanations.append(item)
 
+    # 토픽 이름은 AUDIENCE_STORYLINE 이 유일한 출처다. 여기에 문자열을 다시 적으면
+    # 화면 미리보기·LLM 지시와 조용히 갈라진다.
+    topics = AUDIENCE_STORYLINE[audience]
+
     if audience is Audience.NEWCOMER:
-        add("무엇을 하는 기술인가", [analysis.core_message], core_refs, 1)
+        what, why, how, remember = topics
+        add(what, [analysis.core_message], core_refs, 1)
         add(
-            "왜 필요한가",
+            why,
             [n.meaning for n in analysis.numbers[:2]],
             inherit_refs(*[n.source_refs for n in analysis.numbers[:2]]),
         )
         add(
-            "어떻게 동작하나",
+            how,
             [i.text for i in features[:3]] or [i.text for i in tech[:3]],
             inherit_refs(*[i.source_refs for i in (features[:3] or tech[:3])]),
         )
         add(
-            "기억해야 할 조건",
+            remember,
             [i.text for i in conditions[:2]],
             inherit_refs(*[i.source_refs for i in conditions[:2]]),
             2,
         )
 
     elif audience is Audience.PRACTITIONER:
-        add("기술 구성", [i.text for i in tech[:4]], inherit_refs(*[i.source_refs for i in tech[:4]]), 4)
+        structure, performance, limits = topics
+        add(structure, [i.text for i in tech[:4]], inherit_refs(*[i.source_refs for i in tech[:4]]), 4)
         add(
-            "성능과 측정 조건",
+            performance,
             [n.meaning for n in analysis.numbers[:4]],
             inherit_refs(*[n.source_refs for n in analysis.numbers[:4]]),
             4,
         )
         # 실무자에게는 must_keep 을 하나도 빠뜨리지 않는다
         add(
-            "적용 조건과 제약",
+            limits,
             [i.text for i in conditions],
             inherit_refs(*[i.source_refs for i in conditions]),
             len(conditions) or 1,
@@ -143,61 +224,64 @@ def transform_heuristic(
 
     elif audience is Audience.EXECUTIVE:
         # 덱 마지막의 "결론 및 다음 행동" 과 제목이 겹치지 않게 한다.
-        add("한 줄 결론", [analysis.core_message], core_refs, 1)
+        verdict, effect, risk, tech_summary = topics
+        add(verdict, [analysis.core_message], core_refs, 1)
         add(
-            "도입 효과",
+            effect,
             [n.meaning for n in (effects or analysis.numbers[:2])],
             inherit_refs(*[n.source_refs for n in (effects or analysis.numbers[:2])]),
             2,
         )
         add(
-            "리스크와 전제 조건",
+            risk,
             [i.text for i in conditions[:3]],
             inherit_refs(*[i.source_refs for i in conditions[:3]]),
             3,
         )
         add(
-            "판단에 필요한 기술 요약",
+            tech_summary,
             [i.text for i in tech[:2]],
             inherit_refs(*[i.source_refs for i in tech[:2]]),
             2,
         )
 
     else:  # CUSTOMER
-        add("제공하는 가치", [analysis.core_message], core_refs, 1)
+        value, effect, how, precondition = topics
+        add(value, [analysis.core_message], core_refs, 1)
         add(
-            "적용 효과",
+            effect,
             [n.meaning for n in (effects or analysis.numbers[:2])],
             inherit_refs(*[n.source_refs for n in (effects or analysis.numbers[:2])]),
             2,
         )
         add(
-            "동작 방식",
+            how,
             [i.text for i in tech[:2]],
             inherit_refs(*[i.source_refs for i in tech[:2]]),
             2,
         )
         add(
-            "적용 전 확인이 필요한 조건",
+            precondition,
             [i.text for i in conditions[:3]],
             inherit_refs(*[i.source_refs for i in conditions[:3]]),
             3,
         )
 
-    # 용어 풀이: 신입사원에게 가장 많이, 임원에게 가장 적게
-    glossary_limit = {
-        Audience.NEWCOMER: len(analysis.terms),
-        Audience.PRACTITIONER: 2,
-        Audience.EXECUTIVE: 0,
-        Audience.CUSTOMER: 2,
-    }[audience]
+    # 용어 풀이: 청중이 기본을 정하고 이해도가 그 값을 움직인다. 이해도가 낮으면 임원에게도
+    # 용어를 풀어 주고, 높으면 신입에게도 줄인다 — 프로파일은 청중을 한 단계 더 좁힌다.
+    limit = resolved_glossary_limit(request)
+    glossary_limit = len(analysis.terms) if limit is None else limit
+    # 관심 영역에 걸리는 용어부터 싣는다. 개수가 적을수록 무엇이 남는지가 중요해진다.
+    terms = profile.sort_by_score(
+        list(analysis.terms), request, lambda t: f"{t.term} {t.definition}"
+    )
     glossary = [
         GlossaryItem(
             term=term.term if request.preserve_original_terms else _strip_english_gloss(term.term),
             plain_definition=_apply_options(term.definition, request),
             source_refs=list(term.source_refs),
         )
-        for term in analysis.terms[:glossary_limit]
+        for term in terms[:glossary_limit]
     ]
 
     content = AudienceContent(
@@ -260,7 +344,12 @@ def transform(
     payload = ctx.call_json(
         stage=STAGE,
         system=audience_prompt.SYSTEM,
-        user=audience_prompt.build_user_prompt(analysis, request),
+        user=audience_prompt.build_user_prompt(
+            analysis,
+            request,
+            AUDIENCE_STORYLINE[request.audience],
+            resolved_glossary_limit(request),
+        ),
         max_tokens=2500,
     )
 
@@ -287,6 +376,12 @@ def transform(
         explanation.source_refs = valid_refs(explanation.source_refs, known)
     for term in content.glossary:
         term.source_refs = valid_refs(term.source_refs, known)
+
+    # 화면이 생성 전에 예고한 개수를 LLM 응답에도 적용한다. 프롬프트로 지시하지만 지켜진다고
+    # 단정하지 않는다 — 계약 검증만으로 LLM 을 믿지 않는다는 규칙과 같은 이유다.
+    limit = resolved_glossary_limit(request)
+    if limit is not None:
+        content.glossary = content.glossary[:limit]
 
     content.audience = request.audience
     if not content.tone_note:

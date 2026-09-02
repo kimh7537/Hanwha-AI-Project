@@ -1,8 +1,10 @@
 // 백엔드 호출. API 키는 절대 여기 두지 않는다 — 모든 LLM 호출은 FastAPI 안에서만 일어난다.
 
 import type {
+  AudiencePlansResponse,
   DocumentResponse,
   GenerateResponse,
+  PlanPreview,
   PresentationRequest,
   VerificationReport,
 } from "./types";
@@ -47,6 +49,43 @@ async function send(path: string, init: RequestInit): Promise<Response> {
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   return (await send(path, init)).json() as Promise<T>;
+}
+
+/**
+ * 청중별 설계 규칙. 조건 화면이 생성 전 미리보기에 쓴다.
+ *
+ * 이것이 없어도 조건 선택과 생성은 그대로 되어야 하므로 실패는 null 로 끝낸다 — 미리보기가
+ * 사라질 뿐 데모가 멈추지 않는다.
+ */
+export async function fetchAudiencePlans(): Promise<AudiencePlansResponse | null> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/audiences`);
+    if (!response.ok) return null;
+    return (await response.json()) as AudiencePlansResponse;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 지금 조건으로 생성하면 나올 구성. 규칙을 화면에 다시 적지 않으려고 백엔드에 물어본다.
+ *
+ * 미리보기가 없어도 생성은 그대로 되어야 하므로 실패는 null 로 끝낸다.
+ */
+export async function fetchPlanPreview(
+  presentationRequest: PresentationRequest,
+): Promise<PlanPreview | null> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/audiences/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(presentationRequest),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as PlanPreview;
+  } catch {
+    return null;
+  }
 }
 
 export async function uploadDocument(file: File): Promise<DocumentResponse> {

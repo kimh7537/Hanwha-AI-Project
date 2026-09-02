@@ -62,8 +62,32 @@ def build_user_prompt(
 발표 시간: {request.duration_minutes}분 → 슬라이드 {slide_count}장으로 구성하라.
 이 장수는 청중을 반영해 이미 정해진 값이다. 이 청중에게 맞는 순서와 선택을 너가 결정하라.
 필수 키워드(덱 안에 최소 1회 등장): {', '.join(request.keywords) or '없음'}
-
+{_message_block(request)}
 입력:
 {json.dumps(payload, ensure_ascii=False, indent=2)}
 
 정확히 {slide_count}장의 슬라이드를 만들어라."""
+
+
+def _message_block(request: PresentationRequest) -> str:
+    """발표자가 지정한 메시지 통제. 모듈 B 에서 이미 순위를 조정했지만, 슬라이드로 묶는
+    단계에서 다시 어긋날 수 있어 여기서도 지시한다."""
+    message = request.message
+    lines: list[str] = []
+
+    if message.must_convey:
+        lines.append(
+            f"반드시 전달할 메시지: {message.must_convey}"
+            " — 이 메시지가 덱 전체에서 읽히도록 배치하라. 뒷받침할 원문 사실이 없으면 지어내지 마라."
+        )
+    if message.minimize:
+        lines.append(
+            f"최소화: {', '.join(message.minimize)}"
+            " — 이 주제에 슬라이드를 따로 내주지 말고 분량을 줄여 뒤에 두어라."
+        )
+    if message.banned:
+        lines.append(f"사용 금지 표현: {', '.join(message.banned)} — 어느 슬라이드에도 쓰지 마라.")
+
+    if not lines:
+        return ""
+    return "\n메시지 통제 (발표자 지정)\n" + "\n".join(f"- {line}" for line in lines)
