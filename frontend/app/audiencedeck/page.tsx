@@ -46,6 +46,22 @@ const DEFAULT_REQUEST: PresentationRequest = {
  */
 const GENERATE_STAGE_AT_MS = [0, 3000, 10000, 22000];
 
+/** mock provider 로 돌 때 진행 화면을 최소 이만큼은 유지한다(ms).
+ *
+ * API 키가 없으면 파이프라인이 1초도 안 걸려 끝나, 진행 화면이 한 번 깜빡이고 결과로 넘어간다.
+ * 단계 표시도 진행률도 미니게임도 볼 시간이 없다. 결과는 이미 손에 들고 화면만 늦추는 것이라
+ * 없는 사실을 지어내지는 않는다 — 실제 호출과 같은 리듬으로 보여 줄 뿐이다.
+ */
+const MOCK_MIN_MS = 60000;
+
+/** mock 일 때 쓰는 예정표. 검증까지 다섯 단계를 1분에 고르게 편다. */
+const MOCK_STAGE_AT_MS = [0, 11000, 24000, 37000, 49000];
+
+/** ms 만큼 기다린다. 이미 지난 시간이면 바로 지나간다. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(ms, 0)));
+}
+
 /** 원본 장수를 기본값으로 쓸 수 있는 입력인지.
  *
  * PPTX 가 아니면 `page_count` 는 슬라이드가 아니라 쪽수라 "원본 그대로"의 뜻이 없고,
@@ -115,22 +131,39 @@ export default function Page() {
     // 근거로 한 예정표를 따라 넘긴다. 응답이 오기 전에는 마지막 단계를 끝내지 않는다.
     setProgressIndex(0);
     const started = Date.now();
+    // 응답을 받기 전에는 mock 인지 알 수 없어 실제 호출 기준 예정표로 시작하고,
+    // mock 으로 밝혀지면 예정표와 상한을 그 자리에서 늘려 잡는다.
+    let stageAt: readonly number[] = GENERATE_STAGE_AT_MS;
+    let ceiling = 3;
     const ticker = window.setInterval(() => {
       const elapsed = Date.now() - started;
-      const reached = GENERATE_STAGE_AT_MS.filter((at) => elapsed >= at).length - 1;
-      setProgressIndex((index) => Math.max(index, Math.min(reached, 3)));
+      const reached = stageAt.filter((at) => elapsed >= at).length - 1;
+      setProgressIndex((index) => Math.max(index, Math.min(reached, ceiling)));
     }, 500);
 
     try {
       const generated = await generatePresentation(document.document.document_id, payload);
-      window.clearInterval(ticker);
       setResult(generated);
       setRequest(payload);
 
-      setProgressIndex(4);
+      const mock = generated.meta.provider === "mock";
+      if (mock) {
+        stageAt = MOCK_STAGE_AT_MS;
+        ceiling = 4;
+      } else {
+        window.clearInterval(ticker);
+        setProgressIndex(4);
+      }
+
       setVerifying(true);
       const verified = await verifyPresentation(generated.presentation_id);
       setReport(verified);
+
+      // mock 은 검증까지 끝나도 몇백 ms 다. 남은 시간은 진행 화면으로 채운다.
+      if (mock) {
+        await sleep(started + MOCK_MIN_MS - Date.now());
+        window.clearInterval(ticker);
+      }
       setProgressIndex(5);
       setStage("result");
     } catch (error) {
