@@ -328,3 +328,14 @@ body::after {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 사내 포털(`/`) 상단바의 Cleverse 로고. 포털은 테마 토큰을 쓰지 않고
+   제 색을 직접 들고 있어서 이 규칙만 있으면 된다. */
+.clevers-mark {
+  display: inline-block;
+  width: 25px;
+  height: 25px;
+  border: 3px solid #f47b32;
+  border-radius: 5px;
+  transform: rotate(30deg);
+}
