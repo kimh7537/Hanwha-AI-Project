@@ -1,8 +1,18 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import { PIPELINE_STEPS } from "@/lib/labels";
 import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
 import { Button, Card, ErrorNotice, Kicker } from "./ui";
+
+/** 기다리는 동안 볼 것. 단계 목록과 미니게임을 같은 자리에서 바꿔 단다. */
+const WAIT_TABS = [
+  { id: "progress", label: "진행 상황" },
+  { id: "game", label: "미니게임" },
+] as const;
+
+type WaitTab = (typeof WAIT_TABS)[number]["id"];
 
 /**
  * 생성 5단계 표시. 진행 상태는 실제 API 호출 진행도를 그대로 반영한다
@@ -22,6 +32,44 @@ export function GeneratingStep({
   const total = PIPELINE_STEPS.length;
   const done = Math.min(activeIndex, total);
   const finished = done === total;
+  // 게임과 단계 목록은 한 번에 하나만 본다. 둘을 세로로 쌓으면 진행 상황이 화면 밖으로 밀린다.
+  // 진행률·경과 시간은 탭 위에 남겨, 게임을 하는 중에도 얼마나 왔는지 보이게 한다.
+  const showGame = !error && !finished;
+  const [tab, setTab] = useState<WaitTab>("progress");
+
+  // 게임 안에서 힌트·해설이 열리면 내용이 길어져 iframe 안에 스크롤이 생긴다. 안쪽 스크롤은
+  // 바깥 스크롤과 겹쳐 어느 쪽이 움직이는지 알 수 없게 만든다. 같은 출처(public/)라
+  // 내용 높이를 직접 재서 iframe 을 그만큼 늘린다 — 스크롤 대신 높이가 따라간다.
+  const gameRef = useRef<HTMLIFrameElement>(null);
+  const [gameHeight, setGameHeight] = useState(600);
+
+  useEffect(() => {
+    const frame = gameRef.current;
+    // 숨어 있는 동안(display:none)에는 안쪽 레이아웃이 잡히지 않아 재도 0 이 나온다.
+    if (!showGame || tab !== "game" || !frame) return;
+
+    let observer: ResizeObserver | null = null;
+    const attach = () => {
+      const content = frame.contentDocument?.querySelector("main");
+      if (!content) return;
+      const fit = () => {
+        // body padding 16px 두 줄을 더한다. 0 에 가까운 값은 아직 그려지기 전이라 버린다.
+        const height = Math.ceil(content.getBoundingClientRect().height) + 32;
+        if (height > 200) setGameHeight(height);
+      };
+      fit();
+      observer?.disconnect();
+      observer = new ResizeObserver(fit);
+      observer.observe(content);
+    };
+
+    attach(); // 이미 불러온 뒤 탭을 여는 경우
+    frame.addEventListener("load", attach);
+    return () => {
+      frame.removeEventListener("load", attach);
+      observer?.disconnect();
+    };
+  }, [showGame, tab]);
 
   // 시간이 오래 걸리는 외부 호출이라 단계 숫자만으로는 막대가 몇십 초씩 멈춰 있게 된다.
   // 완료된 단계를 바닥으로 삼고 그 위를 경과 시간이 계속 채운다.
@@ -31,6 +79,62 @@ export function GeneratingStep({
     : finished
       ? 100
       : creepPercent(elapsed, (done / total) * 100);
+
+  // 탭 안과 밖(오류·완료 화면) 두 곳에서 같은 목록을 쓴다.
+  const stepList = (
+    <ol className="mt-5 space-y-2.5">
+      {PIPELINE_STEPS.map((step, index) => {
+        const stepDone = index < activeIndex;
+        const active = index === activeIndex && !error;
+        const failed = index === activeIndex && Boolean(error);
+
+        return (
+          <li
+            key={step}
+            style={{ animationDelay: `${index * 0.05}s` }}
+            className={`animate-in flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-500 ${
+              active
+                ? "border-accent/40 bg-accent-soft"
+                : failed
+                  ? "border-danger/30 bg-danger-soft"
+                  : "border-line bg-surface-muted/40"
+            }`}
+          >
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
+                stepDone
+                  ? "border-ok/40 bg-ok-soft text-ok"
+                  : failed
+                    ? "border-danger/40 bg-danger-soft text-danger"
+                    : active
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-line bg-surface text-muted"
+              }`}
+            >
+              {stepDone ? "✓" : failed ? "✕" : index + 1}
+            </span>
+            <span className={`text-sm ${stepDone || active ? "font-medium" : "text-muted"}`}>
+              {step}
+            </span>
+            {active ? (
+              <span className="ml-auto flex items-center gap-1.5 text-xs text-accent">
+                <span
+                  aria-hidden
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent"
+                />
+                진행 중
+              </span>
+            ) : null}
+            {/* 아직 시작하지 않은 단계는 자리표시자로 남겨 화면이 비어 보이지 않게 한다. */}
+            {!stepDone && !active && !failed ? (
+              <span aria-hidden className="shimmer ml-auto h-2 w-16 rounded-full opacity-50" />
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   return (
     <Card className="p-6 sm:p-8">
@@ -90,75 +194,70 @@ export function GeneratingStep({
             : `${total}단계 중 ${done + 1}단계, ${PIPELINE_STEPS[done]}`}
       </p>
 
-      {!error && !finished ? (
-        <section className="mt-7 overflow-hidden rounded-2xl border border-line bg-surface-muted/40">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold">기다리는 동안 미니게임</p>
-              <p className="mt-0.5 text-[11px] text-muted">생성이 끝나면 결과 화면으로 자동 전환됩니다.</p>
+      {showGame ? (
+        <>
+          <div className="mt-6 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface-muted/40 p-1.5">
+            {/* 안내 문구는 tablist 밖에 둔다 — 탭이 아닌 요소가 tablist 안에 있으면
+                보조기기가 탭 개수를 잘못 읽는다. */}
+            <div role="tablist" aria-label="기다리는 동안" className="flex gap-1">
+              {WAIT_TABS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  id={`wait-tab-${id}`}
+                  role="tab"
+                  aria-selected={tab === id}
+                  aria-controls={`wait-panel-${id}`}
+                  onClick={() => setTab(id)}
+                  className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
+                    tab === id
+                      ? "bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-[0_10px_26px_-14px_rgba(255,138,61,0.95)]"
+                      : "text-muted hover:bg-surface-muted hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                  {id === "game" ? (
+                    <span className="ml-1.5 text-[10px] font-bold opacity-70">GAME</span>
+                  ) : null}
+                </button>
+              ))}
             </div>
-            <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-semibold text-accent">GAME</span>
+            <p className="ml-auto px-2 text-[11px] leading-relaxed text-muted">
+              어느 탭에 있어도 생성은 계속되고, 끝나면 결과 화면으로 넘어갑니다.
+            </p>
           </div>
-          <iframe
-            title="영화 이모지 퀴즈"
-            src="/waiting-game.html"
-            className="h-[520px] w-full border-0 bg-transparent sm:h-[560px]"
-          />
-        </section>
-      ) : null}
 
-      <ol className="mt-7 space-y-2.5">
-        {PIPELINE_STEPS.map((step, index) => {
-          const finished = index < activeIndex;
-          const active = index === activeIndex && !error;
-          const failed = index === activeIndex && Boolean(error);
+          <div
+            id="wait-panel-progress"
+            role="tabpanel"
+            aria-labelledby="wait-tab-progress"
+            className={tab === "progress" ? "" : "hidden"}
+          >
+            {stepList}
+          </div>
 
-          return (
-            <li
-              key={step}
-              style={{ animationDelay: `${index * 0.05}s` }}
-              className={`animate-in flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors duration-500 ${
-                active
-                  ? "border-accent/40 bg-accent-soft"
-                  : failed
-                    ? "border-danger/30 bg-danger-soft"
-                    : "border-line bg-surface-muted/40"
-              }`}
-            >
-              <span
-                aria-hidden
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                  finished
-                    ? "border-ok/40 bg-ok-soft text-ok"
-                    : failed
-                      ? "border-danger/40 bg-danger-soft text-danger"
-                      : active
-                        ? "border-accent bg-accent text-accent-ink"
-                        : "border-line bg-surface text-muted"
-                }`}
-              >
-                {finished ? "✓" : failed ? "✕" : index + 1}
-              </span>
-              <span className={`text-sm ${finished || active ? "font-medium" : "text-muted"}`}>
-                {step}
-              </span>
-              {active ? (
-                <span className="ml-auto flex items-center gap-1.5 text-xs text-accent">
-                  <span
-                    aria-hidden
-                    className="h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent"
-                  />
-                  진행 중
-                </span>
-              ) : null}
-              {/* 아직 시작하지 않은 단계는 자리표시자로 남겨 화면이 비어 보이지 않게 한다. */}
-              {!finished && !active && !failed ? (
-                <span aria-hidden className="shimmer ml-auto h-2 w-16 rounded-full opacity-50" />
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+          {/* 탭을 옮겨도 iframe 을 지우지 않는다. 다시 만들면 풀던 문제가 처음으로 돌아간다. */}
+          <div
+            id="wait-panel-game"
+            role="tabpanel"
+            aria-labelledby="wait-tab-game"
+            className={
+              tab === "game"
+                ? "mt-5 overflow-hidden rounded-2xl border border-line bg-surface-muted/40"
+                : "hidden"
+            }
+          >
+            <iframe
+              ref={gameRef}
+              title="영화 이모지 퀴즈"
+              src="/waiting-game.html"
+              style={{ height: gameHeight }}
+              className="block w-full border-0 bg-transparent"
+            />
+          </div>
+        </>
+      ) : (
+        stepList
+      )}
 
       {error ? (
         <div className="mt-6 space-y-3">

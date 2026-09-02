@@ -1,248 +1,150 @@
-"use client";
+import Link from "next/link";
 
-import { useCallback, useState } from "react";
-
-import { ApiError, generatePresentation, uploadDocument, verifyPresentation } from "@/lib/api";
-import type {
-  DocumentResponse,
-  GenerateResponse,
-  PresentationRequest,
-  VerificationReport,
-} from "@/lib/types";
-import { ConditionStep } from "@/components/ConditionStep";
-import { GeneratingStep } from "@/components/GeneratingStep";
-import { ResultView } from "@/components/ResultView";
-import { UploadStep } from "@/components/UploadStep";
-import { Kicker, Stepper } from "@/components/ui";
-
-type Stage = "upload" | "conditions" | "generating" | "result";
-
-const STAGE_STEPS = ["문서 업로드", "발표 조건", "AI 재설계", "결과 확인"];
-const STAGE_INDEX: Record<Stage, number> = {
-  upload: 0,
-  conditions: 1,
-  generating: 2,
-  result: 3,
-};
-
-const DEFAULT_REQUEST: PresentationRequest = {
-  audience: "customer",
-  purpose: "technical_explanation",
-  duration_minutes: 5,
-  keywords: [],
-  style: "persuasive",
-  preserve_original_terms: true,
-  slide_count: null,
-  // 기본값은 "아무것도 지정하지 않음"이다. 이해도 3 이 청중 기본값 그대로를 뜻하므로
-  // 프로파일을 건드리지 않은 요청은 이 기능이 생기기 전과 같은 구성을 낸다.
-  profile: { expertise: 3, interests: [], prior_knowledge: "" },
-  message: { must_convey: "", minimize: [], banned: [] },
-};
-
-/** generate 안의 각 단계가 시작될 무렵(ms). 문서 분석 → 청중 변환 → 슬라이드 설계 → 발표 지원.
+/** 사내 포털(Cleverse) 홈. AudienceDeck 은 여기서 `/audiencedeck` 로 들어간다.
  *
- * 한 번의 호출이라 실제 경계를 알 수 없어 예정표로 넘긴다. 뒤로 갈수록 간격을 넓혀,
- * 응답이 늦어도 마지막 단계에서 기다리는 것처럼 보이게 한다.
+ * 포털에서 다른 포트의 앱으로 넘기면 배포할 때 도메인이 둘로 갈린다. 두 화면을
+ * 한 앱의 두 라우트로 두면 주소만 바뀌고 화면 구성은 그대로다.
  */
-const GENERATE_STAGE_AT_MS = [0, 3000, 10000, 22000];
+const NAV_ITEMS = ["메일", "게시판", "전자결재", "사원찾기"];
 
-/** 원본 장수를 기본값으로 쓸 수 있는 입력인지.
- *
- * PPTX 가 아니면 `page_count` 는 슬라이드가 아니라 쪽수라 "원본 그대로"의 뜻이 없고,
- * planner 의 3~10장 범위를 벗어나는 원본은 그대로 지킬 수 없어 자동으로 넘긴다.
- */
-function sourceSlideCount(document: DocumentResponse | null): number | null {
-  if (!document?.document.filename.toLowerCase().endsWith(".pptx")) return null;
-  const count = document.document.page_count;
-  return count >= 3 && count <= 10 ? count : null;
-}
+const STORIES = [
+  "한화, 지속가능한 미래를 위한 새로운 약속",
+  "2026년 상반기 주요 경영 성과 안내",
+  "임직원 여러분께 전하는 CEO 메시지",
+];
 
-function toMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  return "알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
-}
-
-export default function Page() {
-  const [stage, setStage] = useState<Stage>("upload");
-  const [document, setDocument] = useState<DocumentResponse | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const [request, setRequest] = useState<PresentationRequest>(DEFAULT_REQUEST);
-  const [keywordText, setKeywordText] = useState("정확도, 도입 효과");
-
-  const [progressIndex, setProgressIndex] = useState(0);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const [result, setResult] = useState<GenerateResponse | null>(null);
-  const [report, setReport] = useState<VerificationReport | null>(null);
-  const [verifying, setVerifying] = useState(false);
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    setUploadError(null);
-    try {
-      const uploaded = await uploadDocument(file);
-      setDocument(uploaded);
-      // 기본은 원본 장수 그대로. 조건 화면에서 자동·직접으로 바꿀 수 있다.
-      setRequest((current) => ({ ...current, slide_count: sourceSlideCount(uploaded) }));
-    } catch (error) {
-      setDocument(null);
-      setUploadError(toMessage(error));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  const runPipeline = useCallback(async () => {
-    if (!document) return;
-
-    const payload: PresentationRequest = {
-      ...request,
-      keywords: keywordText
-        .split(",")
-        .map((keyword) => keyword.trim())
-        .filter(Boolean),
-    };
-
-    setStage("generating");
-    setGenerateError(null);
-    setResult(null);
-    setReport(null);
-
-    // 진행 표시는 실제 호출 단계를 따른다.
-    // generate 호출이 모듈 A~D(0~3단계), verify 호출이 검증(4단계)에 해당한다.
-    // generate 는 한 번의 호출이라 그 안의 단계 경계를 알 수 없으므로, 관측한 소요 시간을
-    // 근거로 한 예정표를 따라 넘긴다. 응답이 오기 전에는 마지막 단계를 끝내지 않는다.
-    setProgressIndex(0);
-    const started = Date.now();
-    const ticker = window.setInterval(() => {
-      const elapsed = Date.now() - started;
-      const reached = GENERATE_STAGE_AT_MS.filter((at) => elapsed >= at).length - 1;
-      setProgressIndex((index) => Math.max(index, Math.min(reached, 3)));
-    }, 500);
-
-    try {
-      const generated = await generatePresentation(document.document.document_id, payload);
-      window.clearInterval(ticker);
-      setResult(generated);
-      setRequest(payload);
-
-      setProgressIndex(4);
-      setVerifying(true);
-      const verified = await verifyPresentation(generated.presentation_id);
-      setReport(verified);
-      setProgressIndex(5);
-      setStage("result");
-    } catch (error) {
-      window.clearInterval(ticker);
-      setGenerateError(toMessage(error));
-    } finally {
-      setVerifying(false);
-    }
-  }, [document, keywordText, request]);
-
+export default function PortalPage() {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-10">
-      {/* 히어로는 첫 화면에서만 크게 편다. 이후 단계에서는 스텝퍼가 그 자리를 대신한다. */}
-      {stage === "upload" ? (
-        <header className="animate-in mb-10 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-glass px-3.5 py-1.5 text-[11px] font-medium text-muted">
-            <span aria-hidden className="pulse-ring h-1.5 w-1.5 rounded-full bg-accent" />
-            Audience-Adaptive Presentation Designer
-          </span>
-          <h1 className="gradient-text mx-auto mt-5 max-w-3xl text-3xl font-black leading-[1.25] tracking-tight sm:text-[2.7rem]">
-            같은 원문에서, 청중에 따라
-            <br />
-            발표를 다시 설계합니다
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
-            문장만 쉽게 바꾸지 않습니다.{" "}
-            <strong className="font-semibold text-foreground">
-              무엇을 넣고 뺄지, 몇 장으로 나눌지, 어떤 순서로 둘지
-            </strong>
-            를 청중에 맞춰 다시 구성하고, 발표 스크립트·예상 Q&amp;A와 함께 모든 문장이 원문을
-            벗어나지 않았는지 검증합니다.
-          </p>
+    <main className="min-h-screen bg-[#f6f6f6] text-[#232323]">
+      <nav className="bg-[#161616] px-5 text-white sm:px-10">
+        <div className="mx-auto flex h-[68px] max-w-[1480px] items-center gap-8">
+          <Link href="/" className="flex shrink-0 items-center gap-3">
+            <span className="clevers-mark" aria-hidden="true" />
+            <span className="text-[20px] font-semibold tracking-[-0.04em]">Cleverse</span>
+          </Link>
+          <div className="hidden h-6 w-px bg-white/20 lg:block" />
+          <div className="hidden items-center gap-8 text-[13px] text-white/70 lg:flex">
+            {NAV_ITEMS.map((item) => (
+              <button key={item} type="button" className="transition hover:text-white">
+                {item}
+              </button>
+            ))}
+            <Link href="/audiencedeck" className="transition hover:text-white">
+              AudienceDeck AI
+            </Link>
+          </div>
+          <div className="ml-auto flex items-center gap-5 text-[13px] text-white/80">
+            <button type="button" className="hidden transition hover:text-white sm:block">
+              Ch.H+
+            </button>
+            <button type="button" aria-label="알림" className="text-lg transition hover:text-[#f47b32]">
+              ♧
+            </button>
+            <button type="button" aria-label="전체 메뉴" className="grid grid-cols-3 gap-1 p-1">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <span key={index} className="h-1.5 w-1.5 rounded-[1px] bg-white/80" />
+              ))}
+            </button>
+          </div>
+        </div>
+      </nav>
 
-          <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
-            {[
-              {
-                k: "01",
-                t: "청중별 재설계",
-                d: "신입·실무자·임원·고객에 따라 슬라이드 장수와 순서까지 바뀝니다",
-              },
-              {
-                k: "02",
-                t: "AI 구성 전략",
-                d: "왜 이 순서, 이 분량으로 만들었는지 AI가 근거를 설명합니다",
-              },
-              {
-                k: "03",
-                t: "원문 대비 검증",
-                d: "모든 수치와 주장을 원문 문장까지 되짚어 확인합니다",
-              },
-            ].map((item, index) => (
-              <div
-                key={item.k}
-                style={{ animationDelay: `${0.08 * index + 0.1}s` }}
-                className="glass animate-in lift rounded-2xl border border-line p-4"
+      <div className="mx-auto max-w-[1480px] px-5 pb-20 sm:px-10">
+        <section className="pt-10 sm:pt-14">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-bold tracking-[0.18em] text-[#ed6a22]">CHANNEL H+</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-[-0.05em] sm:text-4xl">
+                Channel H+ 주요소식
+              </h1>
+            </div>
+            <button type="button" className="text-sm text-[#888] hover:text-[#ed6a22]">
+              전체보기 →
+            </button>
+          </div>
+          <div className="mt-7 grid gap-5 md:grid-cols-3">
+            {STORIES.map((story, index) => (
+              <article
+                key={story}
+                className="group overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]"
               >
-                <Kicker>{item.k}</Kicker>
-                <p className="mt-2 text-sm font-semibold">{item.t}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted">{item.d}</p>
-              </div>
+                <div
+                  className={`h-36 ${index === 0 ? "bg-[#ed6a22]" : index === 1 ? "bg-[#252525]" : "bg-[#f0d1bb]"} p-6`}
+                >
+                  <span className="text-4xl font-bold text-white/90">0{index + 1}</span>
+                  <p className="mt-10 text-xs font-medium text-white/75">CHANNEL H+ · 2026.09.02</p>
+                </div>
+                <div className="p-5">
+                  <h2 className="text-[16px] font-semibold leading-6 group-hover:text-[#ed6a22]">
+                    {story}
+                  </h2>
+                  <p className="mt-3 text-xs text-[#999]">새로운 소식을 확인해보세요</p>
+                </div>
+              </article>
             ))}
           </div>
-        </header>
-      ) : null}
+        </section>
 
-      <div className="mx-auto mb-8 max-w-2xl">
-        <Stepper steps={STAGE_STEPS} current={STAGE_INDEX[stage]} />
+        <section className="mt-12 grid gap-5 lg:grid-cols-2">
+          <Board
+            title="회사공지"
+            items={[
+              "2026년 추석 연휴 및 휴무일 안내",
+              "사내 보안 정책 변경 안내",
+              "임직원 건강검진 신청 일정",
+            ]}
+          />
+          <Board
+            title="그룹게시판"
+            items={[
+              "한화그룹 공통 복지 제도 안내",
+              "계열사 우수 사례를 공유합니다",
+              "이번 주 그룹 주요 일정",
+            ]}
+          />
+        </section>
+
+        <section className="mt-12 overflow-hidden rounded-2xl bg-[#211d1b] px-7 py-8 text-white sm:px-10">
+          <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-xs font-bold tracking-[0.16em] text-[#f47b32]">NEW SERVICE</p>
+              <h2 className="mt-2 text-2xl font-bold tracking-[-0.04em]">AI Project Assistant</h2>
+              <p className="mt-2 text-sm text-white/60">문서에서 발표까지, 업무 준비를 더 간편하게</p>
+            </div>
+            <Link
+              href="/audiencedeck"
+              className="rounded-xl bg-[#ed6a22] px-6 py-3 text-sm font-bold transition hover:bg-[#ff8744]"
+            >
+              시작하기 <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
       </div>
-
-      {stage === "upload" ? (
-        <UploadStep
-          document={document}
-          uploading={uploading}
-          error={uploadError}
-          onUpload={handleUpload}
-          onNext={() => setStage("conditions")}
-        />
-      ) : null}
-
-      {stage === "conditions" ? (
-        <ConditionStep
-          request={request}
-          keywordText={keywordText}
-          sourceSlides={sourceSlideCount(document)}
-          onChange={setRequest}
-          onKeywordTextChange={setKeywordText}
-          onBack={() => setStage("upload")}
-          onSubmit={runPipeline}
-        />
-      ) : null}
-
-      {stage === "generating" ? (
-        <GeneratingStep
-          activeIndex={progressIndex}
-          error={generateError}
-          onRetry={runPipeline}
-          onBack={() => {
-            setGenerateError(null);
-            setStage("conditions");
-          }}
-        />
-      ) : null}
-
-      {stage === "result" && result ? (
-        <ResultView
-          result={result}
-          report={report}
-          pages={document?.pages ?? []}
-          verifying={verifying}
-          onRestart={() => setStage("conditions")}
-        />
-      ) : null}
     </main>
+  );
+}
+
+function Board({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/[0.04]">
+      <div className="flex items-center justify-between border-b border-[#eee] pb-4">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <button type="button" className="text-xs text-[#999] hover:text-[#ed6a22]">
+          더보기 +
+        </button>
+      </div>
+      <div className="divide-y divide-[#f1f1f1]">
+        {items.map((item) => (
+          <button
+            type="button"
+            key={item}
+            className="flex w-full items-center justify-between py-4 text-left text-sm text-[#555] transition hover:text-[#ed6a22]"
+          >
+            <span className="truncate pr-4">{item}</span>
+            <span className="shrink-0 text-xs text-[#aaa]">2026.09.02</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
