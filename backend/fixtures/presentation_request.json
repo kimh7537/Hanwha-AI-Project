@@ -1,0 +1,12 @@
+{
+  "audience": "customer",
+  "purpose": "technical_explanation",
+  "duration_minutes": 5,
+  "keywords": [
+    "정확도",
+    "도입 효과"
+  ],
+  "style": "persuasive",
+  "preserve_original_terms": true,
+  "slide_count": 5
+}

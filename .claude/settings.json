@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./backend/.env)",
+      "Read(./frontend/.env.local)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\session-brief.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\route-hint.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\guard-secrets.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\contract-guard.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude\\hooks\\stop-verify.ps1",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

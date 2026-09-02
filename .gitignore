@@ -1,0 +1,23 @@
+# 비밀정보
+.env
+.env.local
+backend/.env
+frontend/.env.local
+
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/.next/
+frontend/out/
+
+# 스킬 실행 산출물
+.claude/skills/demo-check/out/
+
+# 업로드/임시 파일
+backend/storage/
+*.log
