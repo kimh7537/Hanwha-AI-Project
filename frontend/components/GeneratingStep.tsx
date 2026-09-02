@@ -90,6 +90,23 @@ export function GeneratingStep({
             : `${total}단계 중 ${done + 1}단계, ${PIPELINE_STEPS[done]}`}
       </p>
 
+      {!error && !finished ? (
+        <section className="mt-7 overflow-hidden rounded-2xl border border-line bg-surface-muted/40">
+          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold">기다리는 동안 미니게임</p>
+              <p className="mt-0.5 text-[11px] text-muted">생성이 끝나면 결과 화면으로 자동 전환됩니다.</p>
+            </div>
+            <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-semibold text-accent">GAME</span>
+          </div>
+          <iframe
+            title="영화 이모지 퀴즈"
+            src="/waiting-game.html"
+            className="h-[520px] w-full border-0 bg-transparent sm:h-[560px]"
+          />
+        </section>
+      ) : null}
+
       <ol className="mt-7 space-y-2.5">
         {PIPELINE_STEPS.map((step, index) => {
           const finished = index < activeIndex;
