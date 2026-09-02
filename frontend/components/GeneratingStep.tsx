@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PIPELINE_STEPS } from "@/lib/labels";
 import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
@@ -36,6 +36,40 @@ export function GeneratingStep({
   // 진행률·경과 시간은 탭 위에 남겨, 게임을 하는 중에도 얼마나 왔는지 보이게 한다.
   const showGame = !error && !finished;
   const [tab, setTab] = useState<WaitTab>("progress");
+
+  // 게임 안에서 힌트·해설이 열리면 내용이 길어져 iframe 안에 스크롤이 생긴다. 안쪽 스크롤은
+  // 바깥 스크롤과 겹쳐 어느 쪽이 움직이는지 알 수 없게 만든다. 같은 출처(public/)라
+  // 내용 높이를 직접 재서 iframe 을 그만큼 늘린다 — 스크롤 대신 높이가 따라간다.
+  const gameRef = useRef<HTMLIFrameElement>(null);
+  const [gameHeight, setGameHeight] = useState(600);
+
+  useEffect(() => {
+    const frame = gameRef.current;
+    // 숨어 있는 동안(display:none)에는 안쪽 레이아웃이 잡히지 않아 재도 0 이 나온다.
+    if (!showGame || tab !== "game" || !frame) return;
+
+    let observer: ResizeObserver | null = null;
+    const attach = () => {
+      const content = frame.contentDocument?.querySelector("main");
+      if (!content) return;
+      const fit = () => {
+        // body padding 16px 두 줄을 더한다. 0 에 가까운 값은 아직 그려지기 전이라 버린다.
+        const height = Math.ceil(content.getBoundingClientRect().height) + 32;
+        if (height > 200) setGameHeight(height);
+      };
+      fit();
+      observer?.disconnect();
+      observer = new ResizeObserver(fit);
+      observer.observe(content);
+    };
+
+    attach(); // 이미 불러온 뒤 탭을 여는 경우
+    frame.addEventListener("load", attach);
+    return () => {
+      frame.removeEventListener("load", attach);
+      observer?.disconnect();
+    };
+  }, [showGame, tab]);
 
   // 시간이 오래 걸리는 외부 호출이라 단계 숫자만으로는 막대가 몇십 초씩 멈춰 있게 된다.
   // 완료된 단계를 바닥으로 삼고 그 위를 경과 시간이 계속 채운다.
@@ -213,9 +247,11 @@ export function GeneratingStep({
             }
           >
             <iframe
+              ref={gameRef}
               title="영화 이모지 퀴즈"
               src="/waiting-game.html"
-              className="h-[520px] w-full border-0 bg-transparent sm:h-[560px]"
+              style={{ height: gameHeight }}
+              className="block w-full border-0 bg-transparent"
             />
           </div>
         </>
