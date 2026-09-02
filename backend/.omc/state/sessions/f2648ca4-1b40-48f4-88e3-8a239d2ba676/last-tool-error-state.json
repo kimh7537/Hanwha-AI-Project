@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project\\\" && cat backend/requirements.txt; echo \\\"=== 샘플 문서 크기(문자)\\\"; for f in backend/fixtures/*.txt backend/fixtures/*.md sam...",
+  "error": "Exit code 2\n/usr/bin/bash: eval: line 1: syntax error near unexpected token `2'\n/usr/bin/bash: eval: line 1: `cd \"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project\" && cat backend/requirements.txt; echo \"=== 샘플 문서 크기(문자)\"; for f in backend/fixtures/*.txt backend/fixtures/*.md samples/* 2>/dev/null; do [ -f \"$f\" ] && echo \"$f $(wc -c <\"$f\")\"; done 2>/dev/null | head -20; ls backend/fixtures'",
+  "timestamp": "2026-09-01T15:16:14.902Z",
+  "retry_count": 1
+}

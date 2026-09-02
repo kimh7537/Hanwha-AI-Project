@@ -14,6 +14,7 @@ from app.llm.factory import build_provider
 from app.models.contracts import (
     DocumentMeta,
     GenerateResponse,
+    PageContent,
     PipelineMeta,
     PresentationRequest,
     PresentationSupport,
@@ -41,7 +42,12 @@ def build_document(filename: str, data: bytes) -> StoredDocument:
     # PPTX 는 원본을 그대로 들고 있는다. export 가 이 파일 위에 결과를 얹어
     # 원본의 이미지·표·서식을 살리기 때문이다 (services/export_pptx.build_pptx).
     source = data if Path(filename or "").suffix.lower() == ".pptx" else None
-    return StoredDocument(meta=meta, chunks=chunks, source=source)
+    return StoredDocument(
+        meta=meta,
+        chunks=chunks,
+        pages=[PageContent(page=page.page, text=page.text) for page in pages],
+        source=source,
+    )
 
 
 def build_document_from_text(text: str, filename: str = "sample.txt") -> StoredDocument:

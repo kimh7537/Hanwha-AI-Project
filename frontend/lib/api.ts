@@ -90,6 +90,45 @@ export async function fetchPresentationPptx(
   };
 }
 
+/**
+ * 원본 PPTX 슬라이드 한 장의 PNG 주소. `<img src>` 에 그대로 넣는다.
+ *
+ * 백엔드가 설치된 PowerPoint 로 굽는다. 못 굽는 PC 면 503 이 오고 화면은 글자 비교로 돌아간다.
+ */
+export function documentSlideUrl(documentId: string, page: number): string {
+  return `${BASE_URL}/api/documents/${documentId}/slides/${page}`;
+}
+
+/** 생성된 발표자료 슬라이드 한 장의 PNG 주소. `number` 는 발표용 덱 기준 1-based. */
+export function presentationSlideUrl(presentationId: string, number: number): string {
+  return `${BASE_URL}/api/presentations/${presentationId}/slides/${number}`;
+}
+
+/** 슬라이드 위에 얹을 변경 표시 네모. 좌표는 0~1 비율이다. */
+export type DiffRegion = { x: number; y: number; w: number; h: number; label: string };
+
+/**
+ * 원본 `page` 장과 발표용 `number` 장 사이에서 달라진 자리.
+ *
+ * 두 렌더가 같은 좌표계라 네모 한 벌이 좌우 양쪽에 함께 맞는다. 표시가 없다고 대조 화면이
+ * 멈추면 안 되므로 실패는 빈 목록으로 끝낸다 (PowerPoint 없는 PC 는 503).
+ */
+export async function fetchSlideDiff(
+  presentationId: string,
+  number: number,
+  page: number,
+): Promise<DiffRegion[]> {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/api/presentations/${presentationId}/slides/${number}/diff?page=${page}`,
+    );
+    if (!response.ok) return [];
+    return (await response.json()).regions ?? [];
+  } catch {
+    return [];
+  }
+}
+
 /** 한국어 파일명은 RFC 5987 (`filename*=UTF-8''...`) 쪽에 들어 있다. */
 function filenameFromDisposition(header: string | null): string | null {
   if (!header) return null;

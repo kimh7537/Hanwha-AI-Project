@@ -13,8 +13,17 @@ import { ConditionStep } from "@/components/ConditionStep";
 import { GeneratingStep } from "@/components/GeneratingStep";
 import { ResultView } from "@/components/ResultView";
 import { UploadStep } from "@/components/UploadStep";
+import { Kicker, Stepper } from "@/components/ui";
 
 type Stage = "upload" | "conditions" | "generating" | "result";
+
+const STAGE_STEPS = ["문서 업로드", "발표 조건", "AI 재설계", "결과 확인"];
+const STAGE_INDEX: Record<Stage, number> = {
+  upload: 0,
+  conditions: 1,
+  generating: 2,
+  result: 3,
+};
 
 const DEFAULT_REQUEST: PresentationRequest = {
   audience: "customer",
@@ -103,17 +112,63 @@ export default function Page() {
   }, [document, keywordText, request]);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10">
-      <header className="mb-8">
-        <p className="text-xs font-semibold tracking-widest text-accent">AUDIENCEDECK AI</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          청중이 이해할 때까지 리허설하는 발표 준비 도구
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          기술문서 하나를 청중과 발표 조건에 맞춰 재구성하고, 발표 스크립트·예상 Q&amp;A와 함께
-          원문 근거를 벗어나지 않았는지 검증합니다.
-        </p>
-      </header>
+    <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-10">
+      {/* 히어로는 첫 화면에서만 크게 편다. 이후 단계에서는 스텝퍼가 그 자리를 대신한다. */}
+      {stage === "upload" ? (
+        <header className="animate-in mb-10 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-glass px-3.5 py-1.5 text-[11px] font-medium text-muted">
+            <span aria-hidden className="pulse-ring h-1.5 w-1.5 rounded-full bg-accent" />
+            Audience-Adaptive Presentation Designer
+          </span>
+          <h1 className="gradient-text mx-auto mt-5 max-w-3xl text-3xl font-black leading-[1.25] tracking-tight sm:text-[2.7rem]">
+            같은 원문에서, 청중에 따라
+            <br />
+            발표를 다시 설계합니다
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
+            문장만 쉽게 바꾸지 않습니다.{" "}
+            <strong className="font-semibold text-foreground">
+              무엇을 넣고 뺄지, 몇 장으로 나눌지, 어떤 순서로 둘지
+            </strong>
+            를 청중에 맞춰 다시 구성하고, 발표 스크립트·예상 Q&amp;A와 함께 모든 문장이 원문을
+            벗어나지 않았는지 검증합니다.
+          </p>
+
+          <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
+            {[
+              {
+                k: "01",
+                t: "청중별 재설계",
+                d: "신입·실무자·임원·고객에 따라 슬라이드 장수와 순서까지 바뀝니다",
+              },
+              {
+                k: "02",
+                t: "AI 구성 전략",
+                d: "왜 이 순서, 이 분량으로 만들었는지 AI가 근거를 설명합니다",
+              },
+              {
+                k: "03",
+                t: "원문 대비 검증",
+                d: "모든 수치와 주장을 원문 문장까지 되짚어 확인합니다",
+              },
+            ].map((item, index) => (
+              <div
+                key={item.k}
+                style={{ animationDelay: `${0.08 * index + 0.1}s` }}
+                className="glass animate-in lift rounded-2xl border border-line p-4"
+              >
+                <Kicker>{item.k}</Kicker>
+                <p className="mt-2 text-sm font-semibold">{item.t}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">{item.d}</p>
+              </div>
+            ))}
+          </div>
+        </header>
+      ) : null}
+
+      <div className="mx-auto mb-8 max-w-2xl">
+        <Stepper steps={STAGE_STEPS} current={STAGE_INDEX[stage]} />
+      </div>
 
       {stage === "upload" ? (
         <UploadStep
@@ -152,6 +207,7 @@ export default function Page() {
         <ResultView
           result={result}
           report={report}
+          pages={document?.pages ?? []}
           verifying={verifying}
           onRestart={() => setStage("conditions")}
         />

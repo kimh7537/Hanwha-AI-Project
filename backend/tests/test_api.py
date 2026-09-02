@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services import render_slides
 from app.services.store import store
 
 
@@ -71,9 +72,52 @@ def test_pptx_upload_produces_chunks(client: TestClient) -> None:
     assert response.status_code == 200, response.text
 
     payload = response.json()
-    assert payload["document"]["page_count"] >= 5  # 슬라이드 수
+    page_count = payload["document"]["page_count"]
+    assert page_count >= 5  # 슬라이드 수
     assert payload["chunks"]
     assert payload["chunks"][0]["id"] == "chunk-01"
+
+    # 원본 대조 화면은 "원본 슬라이드 N" 을 빠짐없이 그린다. chunk 는 쪽 경계를 넘어 묶이고
+    # page 는 chunk 가 "시작한" 쪽이라 chunk 로는 이 성질이 깨진다 — 그래서 pages 를 따로 받는다.
+    assert [page["page"] for page in payload["pages"]] == list(range(1, page_count + 1))
+    assert {chunk["page"] for chunk in payload["chunks"]} < set(range(1, page_count + 1))
+
+
+def test_slide_image_degrades_without_powerpoint(
+    client: TestClient, uploaded: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """원본 대조 화면은 슬라이드 렌더링이 안 되는 PC 에서도 살아 있어야 한다.
+
+    렌더링은 데모의 전제가 아니다(docs/10). 실패는 503 + 한국어 안내로 끝나고 화면은
+    글자 비교로 되돌아간다. PowerPoint 가 있는 개발기에서도 이 경로가 도는지 봐야 하므로
+    `available()` 을 꺼서 확인한다 — 테스트가 PowerPoint 를 띄우지 않게 하는 뜻도 있다.
+    """
+    document_id = uploaded["document"]["document_id"]
+
+    # TXT 업로드에는 원본 PPTX 가 없다. 이때는 503 이 아니라 "PPTX 만 된다"는 404 다.
+    original = client.get(f"/api/documents/{document_id}/slides/1")
+    assert original.status_code == 404
+    assert "PPTX" in original.json()["detail"]
+
+    created = client.post(
+        "/api/presentations/generate",
+        json={
+            "document_id": document_id,
+            "request": {
+                "audience": "executive",
+                "purpose": "internal_report",
+                "duration_minutes": 3,
+            },
+        },
+    )
+    assert created.status_code == 200, created.text
+
+    monkeypatch.setattr(render_slides, "available", lambda: False)
+    response = client.get(
+        f"/api/presentations/{created.json()['presentation_id']}/slides/1"
+    )
+    assert response.status_code == 503
+    assert "글자 비교" in response.json()["detail"]
 
 
 def test_generate_returns_full_pipeline(client: TestClient, uploaded: dict) -> None:

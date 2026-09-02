@@ -1,42 +1,34 @@
 @import "tailwindcss";
 
-/* 깔끔한 업무 도구 톤. 오렌지는 강조 1~2곳에만 쓴다 (docs/07-frontend-ux.md). */
+/* AudienceDeck AI — 다크 프리미엄 테마.
+ *
+ * 시연 환경이 어떤 OS 설정이든 화면이 똑같이 나와야 해서 prefers-color-scheme 분기를
+ * 두지 않는다. 다크 한 벌만 정교하게 맞춘다 (docs/07-frontend-ux.md).
+ */
 :root {
-  --background: #f7f7f6;
-  --surface: #ffffff;
-  --surface-muted: #f1f1ef;
-  --foreground: #1b1b1a;
-  --muted: #6b6b66;
-  --border: #e0e0dc;
-  --accent: #d1600a;
-  --accent-soft: #fdf1e6;
+  --background: #0a0c11;
+  --surface: #141822;
+  --surface-muted: #1b202c;
+  --surface-glass: rgba(255, 255, 255, 0.04);
+  --foreground: #e9edf6;
+  --muted: #97a1b6;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
 
-  --ok: #2f6f4e;
-  --ok-soft: #eaf4ee;
-  --warn: #8a5a00;
-  --warn-soft: #fdf3e0;
-  --danger: #a02a24;
-  --danger-soft: #fbeceb;
-}
+  --accent: #ff8a3d;
+  --accent-2: #ffc46b;
+  --accent-soft: rgba(255, 138, 61, 0.12);
+  --accent-ink: #12151c;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #14140f;
-    --surface: #1c1c18;
-    --surface-muted: #24241f;
-    --foreground: #ededea;
-    --muted: #a3a39c;
-    --border: #33332c;
-    --accent: #f08b3a;
-    --accent-soft: #33220f;
+  --ok: #56d99a;
+  --ok-soft: rgba(86, 217, 154, 0.12);
+  --warn: #fbbf5c;
+  --warn-soft: rgba(251, 191, 92, 0.12);
+  --danger: #f8827c;
+  --danger-soft: rgba(248, 130, 124, 0.12);
 
-    --ok: #7fc9a1;
-    --ok-soft: #16241c;
-    --warn: #e2b35c;
-    --warn-soft: #2a2110;
-    --danger: #e88b85;
-    --danger-soft: #2c1614;
-  }
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -46,8 +38,11 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
@@ -61,6 +56,212 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  font-family: var(--font-geist-sans), "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo",
+    sans-serif;
   word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 배경 레이어 ─────────────────────────────────────────────
+ * 오로라 글로우 + 미세 격자. 요소가 아니라 의사요소라서 DOM 을 늘리지 않는다.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 38% at 18% 12%, rgba(255, 138, 61, 0.22), transparent 62%),
+    radial-gradient(34% 34% at 82% 8%, rgba(96, 126, 255, 0.16), transparent 62%),
+    radial-gradient(44% 44% at 62% 96%, rgba(255, 196, 107, 0.1), transparent 62%);
+  animation: drift 26s var(--ease-out) infinite alternate;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(80% 60% at 50% 0%, #000 0%, transparent 85%);
+}
+
+@keyframes drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(3%, -3%, 0) scale(1.1);
+  }
+}
+
+/* ── 진입 애니메이션 ──────────────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-in {
+  animation: fade-up 0.55s var(--ease-out) both;
+}
+
+@keyframes sheen {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 180% 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 138, 61, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 138, 61, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 138, 61, 0);
+  }
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+/* ── 컴포넌트 유틸리티 ────────────────────────────────────── */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-card);
+}
+
+.lift {
+  transition:
+    transform 0.35s var(--ease-out),
+    border-color 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.lift:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 28px 50px -28px rgba(0, 0, 0, 1);
+}
+
+/* 브랜드 그라디언트 텍스트 — 히어로 제목 한 곳에만 쓴다. */
+.gradient-text {
+  background: linear-gradient(96deg, var(--foreground) 12%, var(--accent-2) 52%, var(--accent) 88%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: var(--accent-ink);
+  box-shadow: 0 10px 30px -12px rgba(255, 138, 61, 0.75);
+  transition:
+    transform 0.25s var(--ease-out),
+    box-shadow 0.25s var(--ease-out),
+    filter 0.25s var(--ease-out);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 16px 38px -12px rgba(255, 138, 61, 0.85);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  filter: grayscale(0.5);
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* 버튼 위를 한 번 훑고 지나가는 광택. 시선을 주 CTA 로 끌어온다. */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: sheen 3.6s ease-in-out infinite;
+}
+
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: var(--surface-glass);
+  transition:
+    background 0.25s var(--ease-out),
+    border-color 0.25s var(--ease-out),
+    transform 0.25s var(--ease-out);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+/* 로딩 자리표시자. */
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--surface-muted) 30%,
+    rgba(255, 255, 255, 0.07) 50%,
+    var(--surface-muted) 70%
+  );
+  background-size: 220% 100%;
+  animation: sheen 1.6s linear infinite;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* 스크롤바까지 맞춰 둔다 — 기본 회색 막대가 남으면 완성도가 깎여 보인다. */
+* {
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+/* 움직임을 줄이도록 설정한 사용자에게는 전부 끈다. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  body::before,
+  .btn-primary::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
 }

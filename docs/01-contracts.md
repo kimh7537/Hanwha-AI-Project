@@ -49,11 +49,18 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
   },
   "chunks": [
     {"id": "chunk-01", "index": 0, "page": 1, "text": "..."}
+  ],
+  "pages": [
+    {"page": 1, "text": "..."}
   ]
 }
 ```
 
 `chunk id`는 `chunk-01` 형식(1-based, 2자리 zero-pad). 모든 `source_refs`는 이 id를 가리킨다.
+
+`pages`는 파싱한 원본 쪽 전체(PPTX 는 슬라이드 한 장 = 한 쪽)다. chunk 는 쪽 경계를 넘어 묶이고
+짧은 꼬리는 앞 chunk 에 붙으므로 chunk 로는 원본 한 장을 복원할 수 없다. 화면의 **원본 대조**가
+"원본 슬라이드 N"을 그대로 보여주려면 이 배열이 필요하다.
 
 ## SourceAnalysis (모듈 A 출력)
 
@@ -88,6 +95,7 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
 ```json
 {
   "title": "",
+  "strategy": "",
   "slides": [{
     "id": "slide-1",
     "title": "",
@@ -99,6 +107,9 @@ Python Pydantic 모델과 TypeScript 타입은 **의미상 동일**해야 한다
   }]
 }
 ```
+
+`strategy`는 **왜 이 순서·이 분량으로 구성했는지**다. 청중이 바뀌면 이 문장도 바뀐다.
+원문 사실을 적는 칸이 아니라 설계 의도를 적는 칸이므로 `source_refs`를 갖지 않는다.
 
 ## PresentationSupport (모듈 D 출력)
 

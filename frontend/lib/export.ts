@@ -16,6 +16,7 @@ export function toMarkdown(result: GenerateResponse): string {
     `- 발표 시간: ${request.duration_minutes}분`,
     `- 필수 키워드: ${request.keywords.join(", ") || "없음"}`,
     "",
+    ...(slide_deck.strategy ? [`**AI 구성 전략** ${slide_deck.strategy}`, ""] : []),
     "---",
     "",
   ];

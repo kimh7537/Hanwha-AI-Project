@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "cursor": 4,
+  "tickets": [
+    {
+      "sessionId": "986ea73f-0744-43d3-bfd8-a45b8323a755",
+      "attempts": 0,
+      "retryAt": "2026-09-01T15:26:26.751Z",
+      "claimNonce": "acc65bd9-ed60-4de0-bdca-2bf2646f7202",
+      "leaseExpiresAt": "2026-09-02T00:45:34.842Z"
+    },
+    {
+      "sessionId": "6de5e0c8-7fd8-434e-b7c2-4c8aa17c62f7",
+      "attempts": 0,
+      "retryAt": "2026-09-01T15:59:25.208Z",
+      "claimNonce": "0dd6fe9c-65a6-4605-84f5-57f4d4c496a2",
+      "leaseExpiresAt": "2026-09-02T00:45:34.842Z"
+    },
+    {
+      "sessionId": "f634ddf8-91a0-46cf-bf0d-5af623f6061f",
+      "attempts": 0,
+      "retryAt": "2026-09-01T23:01:42.296Z",
+      "claimNonce": "56c5c7e0-f75f-4a1d-b896-847be2083dbf",
+      "leaseExpiresAt": "2026-09-02T00:45:34.842Z"
+    },
+    {
+      "sessionId": "c3652e7a-5b0d-4459-bf1c-3310140c23f4",
+      "attempts": 0,
+      "retryAt": "2026-09-01T23:08:04.087Z",
+      "claimNonce": "db62e321-367b-4407-9ba1-c815e831f7d8",
+      "leaseExpiresAt": "2026-09-02T00:45:34.842Z"
+    },
+    {
+      "sessionId": "04612a92-e22e-4a8b-add8-bfca8e174d38",
+      "attempts": 0,
+      "retryAt": "2026-09-02T00:42:42.518Z"
+    }
+  ]
+}

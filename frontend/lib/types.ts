@@ -46,9 +46,16 @@ export interface DocumentMeta {
   chunk_count: number;
 }
 
+/** 원본 한 쪽(PPTX 는 슬라이드 한 장)의 글. chunk 는 쪽 경계를 넘으므로 따로 받는다. */
+export interface PageContent {
+  page: number;
+  text: string;
+}
+
 export interface DocumentResponse {
   document: DocumentMeta;
   chunks: Chunk[];
+  pages: PageContent[];
 }
 
 export interface SourceEvidence {
@@ -119,6 +126,8 @@ export interface Slide {
 
 export interface SlideDeck {
   title: string;
+  /** 이 청중이라서 왜 이 순서·이 분량인지. 청중이 바뀌면 함께 바뀐다. */
+  strategy: string;
   slides: Slide[];
 }
 

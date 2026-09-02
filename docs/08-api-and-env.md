@@ -4,7 +4,7 @@
 
 ```text
 POST /api/documents
-  multipart/form-data (file) → { document, chunks }
+  multipart/form-data (file) → { document, chunks, pages }
   파일 업로드 및 chunk 생성
 
 POST /api/presentations/generate
@@ -21,7 +21,21 @@ GET  /api/presentations/{id}          (선택) 저장된 결과 조회
 GET  /api/presentations/{id}/export/pptx
   → application/vnd.openxmlformats-officedocument.presentationml.presentation
   저장된 결과를 PPTX 로 내려준다. 새로 생성하지 않으므로 LLM 호출이 없다.
+
+GET  /api/documents/{id}/slides/{page}        원본 PPTX 슬라이드 1장
+GET  /api/presentations/{id}/slides/{number}  결과 PPTX 슬라이드 1장
+  → image/png
+  원본과 결과를 눈으로 대조하는 화면(docs/07)이 쓴다.
+
+GET  /api/presentations/{id}/slides/{number}/diff?page={원본 쪽}
+  → { regions: [{ x, y, w, h, label }] }
+  위 두 PNG 를 픽셀로 대조해 달라진 자리를 돌려준다. 좌표는 0~1 비율이고
+  두 렌더의 좌표계가 같아 네모 한 벌이 좌우 양쪽에 함께 맞는다.
 ```
+
+`diff` 는 파이프라인 데이터가 아니라 화면 표시 보조라서 `contracts.py` 에 두지 않는다
+(계약 4곳 동기화 대상이 아니다). 렌더링은 두 번 다 캐시를 탄다 — 화면이 두 이미지를 이미
+띄운 뒤에 부르기 때문이다. Pillow 가 없거나 대조에 실패하면 `regions` 는 빈 목록이다.
 
 export 는 다운로드이므로 `GET` 이다. 파일명이 한국어라 `Content-Disposition` 에 ASCII 대체
 이름과 RFC 5987 이름(`filename*=UTF-8''…`)을 함께 담고, CORS `expose_headers` 로 노출한다.
@@ -32,6 +46,10 @@ python-pptx 가 없는 환경에서는 **503 + 한국어 안내**로 끝내고 �
 
 `GET /api/health` 는 provider 모드(`mock` / `anthropic` / `openai`)를 함께 반환해
 데모 중 어떤 경로로 동작 중인지 화면에서 확인할 수 있게 한다.
+
+슬라이드 PNG 는 설치된 PowerPoint 를 COM 으로 불러 굽는다(`services/render_slides.py`).
+못 굽는 환경이면 **503 + 한국어 안내**로 끝내고 화면은 글자 비교로 되돌아간다 —
+`/api/health` 의 `render_enabled` 가 이 가능 여부를 알려준다. 렌더링은 데모의 전제가 아니다.
 
 ## 환경변수
 

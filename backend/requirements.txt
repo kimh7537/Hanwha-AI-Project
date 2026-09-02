@@ -9,4 +9,7 @@ pymupdf>=1.24
 python-pptx>=1.0
 # 선택: CHROMA_* 가 설정된 경우에만 쓰인다. 없어도 keyword 검색으로 동작한다.
 chromadb>=1.0
+# 선택: 원본/결과를 슬라이드 이미지로 대조할 때만 쓴다. PowerPoint 가 설치된 윈도우에서만
+# 동작하며, 없으면 화면이 자동으로 글자 대조로 되돌아간다.
+pywin32>=306; sys_platform == "win32"
 pytest>=8.3

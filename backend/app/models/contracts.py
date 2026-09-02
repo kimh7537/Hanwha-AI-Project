@@ -94,9 +94,20 @@ class DocumentMeta(BaseModel):
     chunk_count: int
 
 
+class PageContent(BaseModel):
+    """원본 한 쪽(PPTX 는 슬라이드 한 장)의 글. 화면의 원본 대조에 쓴다.
+
+    chunk 는 쪽 경계를 넘어 묶이므로 chunk 로는 "원본 슬라이드 N 장"을 복원할 수 없다.
+    """
+
+    page: int = 0
+    text: str = ""
+
+
 class DocumentResponse(BaseModel):
     document: DocumentMeta
     chunks: list[Chunk] = Field(default_factory=list)
+    pages: list[PageContent] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------
@@ -182,6 +193,9 @@ class Slide(BaseModel):
 
 class SlideDeck(BaseModel):
     title: str = ""
+    # 이 덱을 왜 이 순서·이 분량으로 짰는지. 청중이 바뀌면 이 문장도 함께 바뀐다.
+    # 표현만 바꾼 것이 아니라 구성을 다시 설계했다는 근거라서 화면에 그대로 노출한다.
+    strategy: str = ""
     slides: list[Slide] = Field(default_factory=list)
 
 

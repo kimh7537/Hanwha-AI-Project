@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__plugin_ecc_chrome-devtools__take_snapshot",
+  "tool_input_preview": "{\"pageId\":5,\"filePath\":\"C:\\\\Users\\\\hyunwoo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project\\\\f634ddf8-91a0-46cf-bf0d-5af623f6061f\\\\scratchpad\\\\snap7.txt\"}",
+  "error": "Note: the browser was restarted or reconnected since the last call. Page ids have changed. Call list_pages to see open pages.\nError: No page found",
+  "timestamp": "2026-09-01T15:49:45.672Z",
+  "retry_count": 1
+}

@@ -47,7 +47,9 @@ def main() -> int:
             keywords=["정확도", "도입 효과"],
             style="persuasive",
             preserve_original_terms=True,
-            slide_count=5,
+            # 장수를 고정하지 않는다. 위저드 기본값이 null 이고, 고정하면 청중 보정이
+            # 걸리지 않아 7번(청중별 구성 차이)이 검사할 대상 자체가 사라진다.
+            slide_count=None,
         )
         result = run_pipeline(text=text, filename=sample.name, request=request)
         payload = result.model_dump(mode="json") if hasattr(result, "model_dump") else dict(result)
@@ -91,16 +93,23 @@ def main() -> int:
          f"status={status} summary={'있음' if report.get('summary') else '없음'}")
     )
 
-    def glossary_size(payload: dict) -> int:
-        return len((payload.get("audience_content") or {}).get("glossary") or [])
+    # 7번은 이 프로젝트의 차별화를 직접 재는 항목이다. 문장이 다른 것만으로는 부족하다 —
+    # "표현만 바꾸는 프롬프트 옵션"과 구분되려면 구성(장수·순서)이 달라져야 한다.
+    def deck(payload: dict) -> dict:
+        return payload.get("slide_deck") or {}
 
-    def deck_text(payload: dict) -> str:
-        return json.dumps(payload.get("slide_deck") or {}, ensure_ascii=False)
+    def titles(payload: dict) -> list[str]:
+        return [s.get("title", "") for s in deck(payload).get("slides") or []]
 
-    differs = glossary_size(newcomer) != glossary_size(customer) or deck_text(newcomer) != deck_text(customer)
+    n_titles, c_titles = titles(newcomer), titles(customer)
+    strategies_differ = bool(deck(newcomer).get("strategy")) and (
+        deck(newcomer).get("strategy") != deck(customer).get("strategy")
+    )
+    differs = len(n_titles) != len(c_titles) and n_titles != c_titles and strategies_differ
     checks.append(
-        (7, "신입사원과 결과 차이", differs,
-         f"glossary 고객 {glossary_size(customer)} / 신입 {glossary_size(newcomer)}")
+        (7, "신입사원과 구성 자체가 다름", differs,
+         f"장수 고객 {len(c_titles)} / 신입 {len(n_titles)}, "
+         f"구성 전략 {'다름' if strategies_differ else '같음'}")
     )
 
     print("데모 성공 기준 검사 결과\n" + "-" * 46)

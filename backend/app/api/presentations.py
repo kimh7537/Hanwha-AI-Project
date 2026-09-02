@@ -12,7 +12,8 @@ from app.models.contracts import (
     VerificationReport,
     VerifyRequest,
 )
-from app.services import export_pptx, verifier
+from app.api.documents import render_or_503, slide_png_response
+from app.services import export_pptx, slide_diff, verifier
 from app.services.pipeline import generate
 from app.services.store import store
 
@@ -94,6 +95,66 @@ def get_presentation(presentation_id: str) -> GenerateResponse:
     if stored is None:
         raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
     return stored
+
+
+@router.get("/{presentation_id}/slides/{number}")
+def presentation_slide(presentation_id: str, number: int) -> Response:
+    """생성된 발표자료의 슬라이드 한 장을 PNG 로 내려준다 (원본과 결과 대조 화면용).
+
+    내려받는 PPTX 를 그대로 굽는다. 화면에 보이는 장이 곧 파일에 들어 있는 장이어야 한다.
+    `number` 는 화면의 발표용 덱 기준 1-based 이며, 파일 1번은 표지라 여기서 한 장 밀어준다.
+    """
+    stored = store.get_presentation(presentation_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
+
+    document = store.get_document(stored.document.document_id)
+
+    try:
+        content = export_pptx.build_pptx(stored, template=document.source if document else None)
+    except export_pptx.PptxUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return slide_png_response(f"pres:{presentation_id}", content, number + 1)
+
+
+@router.get("/{presentation_id}/slides/{number}/diff")
+def presentation_slide_diff(presentation_id: str, number: int, page: int) -> dict:
+    """원본 `page` 장과 발표용 `number` 장 사이에서 달라진 자리 (원본과 결과 대조 화면용).
+
+    좌표는 0~1 비율이라 화면이 이미지를 어떤 크기로 그리든 그대로 얹힌다. 두 렌더가 같은
+    좌표계라(원본 슬라이드의 글만 갈아 끼운다) 네모 한 벌이 좌우 양쪽에 함께 맞는다.
+
+    렌더링은 두 번 다 캐시를 탄다 — 대조 화면이 이미 두 이미지를 띄운 뒤에 부르기 때문이다.
+    """
+    stored = store.get_presentation(presentation_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
+
+    document = store.get_document(stored.document.document_id)
+    if document is None or not document.source:
+        raise HTTPException(
+            status_code=404,
+            detail="변경 표시는 PPTX 를 업로드한 경우에만 제공됩니다.",
+        )
+
+    try:
+        content = export_pptx.build_pptx(stored, template=document.source)
+    except export_pptx.PptxUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    originals = render_or_503(f"doc:{document.meta.document_id}", document.source)
+    results = render_or_503(f"pres:{presentation_id}", content)
+
+    # 결과 파일의 1번은 표지라 발표용 N 장은 파일의 N+1 장이다 (presentation_slide 와 같다).
+    if not 1 <= page <= len(originals) or not 1 <= number + 1 <= len(results):
+        raise HTTPException(status_code=404, detail="해당 슬라이드가 없습니다.")
+
+    return {
+        "regions": slide_diff.regions(
+            originals[page - 1], results[number], document.source, page
+        )
+    }
 
 
 @router.get("/{presentation_id}/export/pptx")
