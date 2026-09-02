@@ -71,8 +71,8 @@ def document_slide(document_id: str, page: int) -> Response:
     return slide_png_response(f"doc:{document_id}", document.source, page)
 
 
-def slide_png_response(cache_key: str, data: bytes, number: int) -> Response:
-    """PPTX 를 렌더링해 1-based `number` 번째 슬라이드를 PNG 응답으로 만든다."""
+def render_or_503(cache_key: str, data: bytes) -> list[bytes]:
+    """PPTX 를 렌더링해 슬라이드 PNG 목록을 돌려준다. 못 구우면 503 + 한국어 안내다."""
     if not render_slides.available():
         raise HTTPException(
             status_code=503,
@@ -80,12 +80,17 @@ def slide_png_response(cache_key: str, data: bytes, number: int) -> Response:
         )
 
     try:
-        images = render_slides.render(cache_key, data)
+        return render_slides.render(cache_key, data)
     except Exception as exc:  # noqa: BLE001 - PowerPoint 는 통제 밖이다
         raise HTTPException(
             status_code=503,
             detail="슬라이드 이미지를 만들지 못했습니다. 글자 비교로 확인해 주세요.",
         ) from exc
+
+
+def slide_png_response(cache_key: str, data: bytes, number: int) -> Response:
+    """PPTX 를 렌더링해 1-based `number` 번째 슬라이드를 PNG 응답으로 만든다."""
+    images = render_or_503(cache_key, data)
 
     if not 1 <= number <= len(images):
         raise HTTPException(status_code=404, detail="해당 슬라이드가 없습니다.")

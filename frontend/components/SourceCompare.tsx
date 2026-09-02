@@ -2,14 +2,25 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { documentSlideUrl, presentationSlideUrl } from "@/lib/api";
+import {
+  documentSlideUrl,
+  fetchSlideDiff,
+  presentationSlideUrl,
+  type DiffRegion,
+} from "@/lib/api";
 import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
 
 /**
  * 원본 문서와 생성된 발표자료를 슬라이드 단위로 나란히 놓는 전체 화면 비교.
  *
+ * **한 쌍씩 크게 본다.** 슬라이드 이미지를 여러 쌍 쌓아 놓으면 한 장이 손톱만 해져 무엇이
+ * 달라졌는지 눈으로 잡히지 않는다. 위의 탭으로 장을 넘기고(← →) 화면에는 한 쌍만 크게 둔다.
+ *
  * 양쪽 모두 실제 PPTX 를 렌더링한 슬라이드 이미지다. 왼쪽은 업로드한 원본 파일, 오른쪽은
  * 내려받게 될 결과 파일을 백엔드가 PowerPoint 로 구운 것이라, 표·도형·배경까지 눈으로 대조된다.
+ * 그 두 그림을 백엔드가 픽셀로 대조해(`services/slide_diff.py`) 달라진 자리를 빨간 네모로 얹는다.
+ * 좌표계가 같아서 네모 한 벌이 좌우 양쪽에 그대로 맞는다.
+ *
  * 렌더링이 안 되는 PC(PowerPoint 없음)나 PPTX 가 아닌 입력에서는 글자 비교로 되돌아간다.
  *
  * 짝짓기 규칙의 원본은 백엔드 `export_pptx._source_slide_index` 이며, 여기 사본은 화면 표시
@@ -41,19 +52,13 @@ export function SourceCompare({
   pages: PageContent[];
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   const isPptx = result.document.filename.toLowerCase().endsWith(".pptx");
   const unitLabel = (page: number) => (isPptx ? `원본 슬라이드 ${page}` : `원문 ${page}쪽`);
 
   // 원본 슬라이드 이미지는 업로드가 PPTX 였을 때만 만들 수 있다. PDF·TXT 는 글자 비교뿐이다.
   const [showText, setShowText] = useState(false);
+  const [showMarks, setShowMarks] = useState(true);
+  const [active, setActive] = useState(0);
   const imageMode = isPptx && !showText;
 
   const rows = useMemo(() => {
@@ -91,17 +96,47 @@ export function SourceCompare({
     return [...paired, ...dropped];
   }, [result, pages]);
 
-  const tally = (kind: Row["kind"]) => rows.filter((row) => row.kind === kind).length;
+  const row = rows[Math.min(active, rows.length - 1)];
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+      // 입력란에 있을 때 화살표를 가로채지 않는다.
+      if (event.target instanceof HTMLElement && event.target.closest("input, textarea")) return;
+      if (event.key === "ArrowLeft") setActive((index) => Math.max(0, index - 1));
+      if (event.key === "ArrowRight") setActive((index) => Math.min(rows.length - 1, index + 1));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, rows.length]);
+
+  // 변경 표시는 보고 있는 한 쌍만 가져온다. 열 때마다 전 장을 대조하면 첫 화면이 느려진다.
+  const [regions, setRegions] = useState<DiffRegion[]>([]);
+  useEffect(() => {
+    setRegions([]);
+    if (!imageMode || row?.kind !== "rewritten") return;
+
+    let cancelled = false;
+    fetchSlideDiff(result.presentation_id, row.number, row.page).then((found) => {
+      if (!cancelled) setRegions(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageMode, result.presentation_id, row]);
+
+  const marks = showMarks ? regions : [];
+  const tally = (kind: Row["kind"]) => rows.filter((item) => item.kind === kind).length;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="원본과 결과 비교"
-      className="animate-in fixed inset-0 z-50 overflow-y-auto bg-background/95 backdrop-blur-md"
+      className="animate-in fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md"
     >
-      <div className="glass sticky top-0 z-10 border-b border-line px-4 py-3 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+      <div className="glass shrink-0 border-b border-line px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-bold tracking-tight sm:text-lg">원본과 결과 비교</h2>
             <p className="mt-0.5 truncate text-[11px] text-muted">
@@ -110,11 +145,25 @@ export function SourceCompare({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden gap-1.5 text-[11px] text-muted sm:flex">
+            <span className="hidden gap-1.5 text-[11px] text-muted lg:flex">
               <Chip>다시 씀 {tally("rewritten")}</Chip>
               <Chip>새로 구성 {tally("added")}</Chip>
               <Chip>제외됨 {tally("dropped")}</Chip>
             </span>
+            {imageMode ? (
+              <button
+                type="button"
+                onClick={() => setShowMarks((value) => !value)}
+                aria-pressed={showMarks}
+                className={`rounded-xl px-3 py-1.5 text-[11px] font-semibold ${
+                  showMarks
+                    ? "border border-[#e0483d]/50 bg-[#e0483d]/15 text-[#ff8078]"
+                    : "btn-ghost"
+                }`}
+              >
+                변경 표시 {showMarks ? "켜짐" : "꺼짐"}
+              </button>
+            ) : null}
             {isPptx ? (
               <button
                 type="button"
@@ -137,33 +186,51 @@ export function SourceCompare({
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl space-y-3 px-4 py-5 sm:px-6">
-        <p className="rounded-xl border border-line bg-surface-muted/40 px-4 py-3 text-xs leading-relaxed text-muted">
-          왼쪽은 업로드한 원본, 오른쪽은 청중에 맞춰 다시 설계한 결과입니다.{" "}
-          {imageMode ? "두 파일을 실제로 렌더링한 슬라이드 이미지입니다. " : null}사실은 그대로
-          두고 무엇을 넣고 뺄지·어떤 순서로 둘지가 바뀝니다. 발표 시간에 맞추느라 짝이 없는 원본은{" "}
-          <strong className="text-foreground">제외됨</strong>으로 표시됩니다.
-        </p>
+      {/* 장 이동 탭. 어떤 장이 다시 쓰였고 어떤 장이 빠졌는지가 여기서 한눈에 읽힌다. */}
+      <div
+        role="tablist"
+        aria-label="슬라이드 목록"
+        className="shrink-0 overflow-x-auto border-b border-line px-4 py-2 sm:px-6"
+      >
+        <div className="mx-auto flex max-w-[1600px] gap-1.5">
+          {rows.map((item, index) => (
+            <button
+              key={index}
+              type="button"
+              role="tab"
+              aria-selected={index === active}
+              onClick={() => setActive(index)}
+              className={`flex shrink-0 items-baseline gap-2 rounded-xl border px-3 py-1.5 text-[11px] whitespace-nowrap transition-colors ${
+                index === active
+                  ? "border-accent/60 bg-accent-soft text-foreground"
+                  : "border-line text-muted hover:border-accent/30"
+              }`}
+            >
+              <span className="font-mono tabular-nums opacity-70">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="max-w-[10rem] truncate font-semibold">{rowTitle(item)}</span>
+              <span className="opacity-70">{KIND_LABELS[item.kind]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            style={{ animationDelay: `${Math.min(index, 8) * 0.04}s` }}
-            className="animate-in glass grid gap-3 rounded-2xl border border-line p-4 md:grid-cols-2"
-          >
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
+          <div className="grid gap-4 lg:grid-cols-2">
             <Side
               label={row.kind === "added" ? "원본에 짝이 없음" : unitLabel(row.page)}
               kind={row.kind}
               muted
             >
               {row.kind === "added" ? (
-                <p className="text-xs leading-relaxed text-muted">
-                  원문 전체에서 근거를 모아 새로 만든 슬라이드입니다.
-                </p>
+                <Placeholder>원문 전체에서 근거를 모아 새로 만든 슬라이드입니다.</Placeholder>
               ) : imageMode ? (
                 <SlideImage
                   src={documentSlideUrl(result.document.document_id, row.page)}
                   alt={`원본 ${row.page}번째 슬라이드`}
+                  regions={marks}
                   fallback={<OriginalText text={row.original} />}
                 />
               ) : (
@@ -176,14 +243,15 @@ export function SourceCompare({
               kind={row.kind}
             >
               {row.kind === "dropped" ? (
-                <p className="text-xs leading-relaxed text-muted">
+                <Placeholder>
                   이 원본은 발표 시간과 청중에 맞추는 과정에서 빠졌습니다. 내려받는 PPTX 에도
                   들어가지 않습니다.
-                </p>
+                </Placeholder>
               ) : imageMode ? (
                 <SlideImage
                   src={presentationSlideUrl(result.presentation_id, row.number)}
                   alt={`발표용 ${row.number}번째 슬라이드`}
+                  regions={marks}
                   fallback={<SlideText slide={row.slide} />}
                 />
               ) : (
@@ -191,8 +259,90 @@ export function SourceCompare({
               )}
             </Side>
           </div>
-        ))}
+
+          <ChangeList row={row} regions={regions} imageMode={imageMode} shown={showMarks} />
+
+          <div className="flex items-center justify-between gap-3 pb-2">
+            <button
+              type="button"
+              onClick={() => setActive((index) => Math.max(0, index - 1))}
+              disabled={active === 0}
+              className="btn-ghost rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-40"
+            >
+              ← 이전 장
+            </button>
+            <p className="text-[11px] text-muted">
+              {active + 1} / {rows.length} · 좌우 화살표로 넘길 수 있습니다
+            </p>
+            <button
+              type="button"
+              onClick={() => setActive((index) => Math.min(rows.length - 1, index + 1))}
+              disabled={active === rows.length - 1}
+              className="btn-ghost rounded-xl px-4 py-2 text-xs font-semibold disabled:opacity-40"
+            >
+              다음 장 →
+            </button>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function rowTitle(row: Row): string {
+  return row.kind === "dropped" ? `원본 ${row.page}장` : row.slide.title || "제목 없음";
+}
+
+/**
+ * 무엇이 어디서 달라졌는지를 글로도 남긴다.
+ *
+ * 네모만으로는 색으로만 상태를 알리는 꼴이 된다(docs/07). 번호가 이미지 위 네모의 번호와
+ * 같아서, 목록을 읽으면 어느 자리 얘기인지 바로 찾아진다.
+ */
+function ChangeList({
+  row,
+  regions,
+  imageMode,
+  shown,
+}: {
+  row: Row;
+  regions: DiffRegion[];
+  imageMode: boolean;
+  shown: boolean;
+}) {
+  if (row.kind !== "rewritten" || !imageMode) return null;
+
+  return (
+    <div className="rounded-2xl border border-line bg-surface-muted/40 px-4 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+        달라진 자리 {regions.length}곳
+      </p>
+      {regions.length === 0 ? (
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          두 슬라이드를 대조하는 중이거나, 눈에 띄는 차이를 찾지 못했습니다.
+        </p>
+      ) : (
+        <>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {regions.map((region, index) => (
+              <li
+                key={index}
+                className="flex items-center gap-2 rounded-lg border border-[#e0483d]/40 bg-[#e0483d]/10 px-2.5 py-1 text-xs"
+              >
+                <span className="font-mono text-[10px] tabular-nums text-[#ff8078]">
+                  {index + 1}
+                </span>
+                {region.label}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
+            {shown
+              ? "빨간 네모는 두 슬라이드를 실제로 렌더링해 픽셀로 대조한 자리입니다. 네모 밖은 원본 그대로 — 이미지·표·배경은 건드리지 않습니다."
+              : "변경 표시가 꺼져 있습니다. 위의 ‘변경 표시’ 를 켜면 이미지 위에 자리를 그립니다."}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -203,14 +353,18 @@ export function SourceCompare({
  * PowerPoint 가 없는 PC 에서는 503 이 온다 — 렌더링이 없다고 화면이 비면 안 된다.
  * next/image 를 쓰지 않는 이유: 주소가 백엔드 오리진이라 remotePatterns 설정이 필요하고,
  * 원본을 그대로 보여주는 것이 목적이라 최적화·리사이즈가 오히려 방해된다.
+ *
+ * 변경 표시 네모는 0~1 비율이고 PNG 가 16:9 라 aspect-video 칸에 그대로 맞는다.
  */
 function SlideImage({
   src,
   alt,
+  regions,
   fallback,
 }: {
   src: string;
   alt: string;
+  regions: DiffRegion[];
   fallback: React.ReactNode;
 }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
@@ -231,13 +385,40 @@ function SlideImage({
         alt={alt}
         width={1280}
         height={720}
-        loading="lazy"
         onLoad={() => setState("ready")}
         onError={() => setState("failed")}
         className={`h-full w-full object-contain transition-opacity duration-200 ${
           state === "ready" ? "opacity-100" : "opacity-0"
         }`}
       />
+      {state === "ready"
+        ? regions.map((region, index) => (
+            // 같은 내용이 아래 목록에 글로 있다. 스크린 리더에는 두 번 읽히지 않게 한다.
+            <div
+              key={index}
+              aria-hidden
+              style={{
+                left: `${region.x * 100}%`,
+                top: `${region.y * 100}%`,
+                width: `${region.w * 100}%`,
+                height: `${region.h * 100}%`,
+              }}
+              className="pointer-events-none absolute rounded-[3px] border-2 border-[#e0483d] bg-[#e0483d]/10"
+            >
+              <span className="absolute -top-px -left-px rounded-br-[3px] bg-[#e0483d] px-1 font-mono text-[9px] leading-[14px] font-bold text-white tabular-nums">
+                {index + 1}
+              </span>
+            </div>
+          ))
+        : null}
+    </div>
+  );
+}
+
+function Placeholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-line px-6">
+      <p className="max-w-sm text-center text-xs leading-relaxed text-muted">{children}</p>
     </div>
   );
 }
@@ -250,22 +431,22 @@ function OriginalText({ text }: { text: string }) {
       </p>
     );
   }
-  return <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted">{text}</p>;
+  return <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">{text}</p>;
 }
 
 function SlideText({ slide }: { slide: Slide }) {
   return (
     <>
-      <h3 className="text-sm font-bold leading-snug">{slide.title}</h3>
+      <h3 className="text-base font-bold leading-snug">{slide.title}</h3>
       {slide.takeaway ? (
-        <p className="mt-2 border-l-2 border-accent bg-accent-soft px-3 py-2 text-xs leading-relaxed">
+        <p className="mt-2 border-l-2 border-accent bg-accent-soft px-3 py-2 text-sm leading-relaxed">
           {slide.takeaway}
         </p>
       ) : null}
       <ul className="mt-2 space-y-1.5">
         {slide.bullets.map((bullet) => (
-          <li key={bullet} className="flex gap-2 text-xs leading-relaxed">
-            <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
+          <li key={bullet} className="flex gap-2 text-sm leading-relaxed">
+            <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-accent" />
             {bullet}
           </li>
         ))}
@@ -292,8 +473,8 @@ function Side({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border border-line p-3.5 ${muted ? "bg-surface-muted/30" : ""}`}>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+    <div className={`rounded-2xl border border-line p-4 ${muted ? "bg-surface-muted/30" : ""}`}>
+      <div className="mb-2.5 flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
           {label}
         </span>

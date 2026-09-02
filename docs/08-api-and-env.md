@@ -26,7 +26,16 @@ GET  /api/documents/{id}/slides/{page}        원본 PPTX 슬라이드 1장
 GET  /api/presentations/{id}/slides/{number}  결과 PPTX 슬라이드 1장
   → image/png
   원본과 결과를 눈으로 대조하는 화면(docs/07)이 쓴다.
+
+GET  /api/presentations/{id}/slides/{number}/diff?page={원본 쪽}
+  → { regions: [{ x, y, w, h, label }] }
+  위 두 PNG 를 픽셀로 대조해 달라진 자리를 돌려준다. 좌표는 0~1 비율이고
+  두 렌더의 좌표계가 같아 네모 한 벌이 좌우 양쪽에 함께 맞는다.
 ```
+
+`diff` 는 파이프라인 데이터가 아니라 화면 표시 보조라서 `contracts.py` 에 두지 않는다
+(계약 4곳 동기화 대상이 아니다). 렌더링은 두 번 다 캐시를 탄다 — 화면이 두 이미지를 이미
+띄운 뒤에 부르기 때문이다. Pillow 가 없거나 대조에 실패하면 `regions` 는 빈 목록이다.
 
 export 는 다운로드이므로 `GET` 이다. 파일명이 한국어라 `Content-Disposition` 에 ASCII 대체
 이름과 RFC 5987 이름(`filename*=UTF-8''…`)을 함께 담고, CORS `expose_headers` 로 노출한다.
