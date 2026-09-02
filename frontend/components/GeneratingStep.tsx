@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { PIPELINE_STEPS } from "@/lib/labels";
 import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
 import { Button, Card, ErrorNotice, Kicker } from "./ui";
@@ -22,6 +24,9 @@ export function GeneratingStep({
   const total = PIPELINE_STEPS.length;
   const done = Math.min(activeIndex, total);
   const finished = done === total;
+  // 미니게임은 열어 두되 접을 수 있게 한다. 닫아도 iframe 은 남겨 두어(display:none)
+  // 다시 열었을 때 풀던 문제가 그대로 있다.
+  const [gameOpen, setGameOpen] = useState(true);
 
   // 시간이 오래 걸리는 외부 호출이라 단계 숫자만으로는 막대가 몇십 초씩 멈춰 있게 된다.
   // 완료된 단계를 바닥으로 삼고 그 위를 경과 시간이 계속 채운다.
@@ -90,23 +95,6 @@ export function GeneratingStep({
             : `${total}단계 중 ${done + 1}단계, ${PIPELINE_STEPS[done]}`}
       </p>
 
-      {!error && !finished ? (
-        <section className="mt-7 overflow-hidden rounded-2xl border border-line bg-surface-muted/40">
-          <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold">기다리는 동안 미니게임</p>
-              <p className="mt-0.5 text-[11px] text-muted">생성이 끝나면 결과 화면으로 자동 전환됩니다.</p>
-            </div>
-            <span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] font-semibold text-accent">GAME</span>
-          </div>
-          <iframe
-            title="영화 이모지 퀴즈"
-            src="/waiting-game.html"
-            className="h-[520px] w-full border-0 bg-transparent sm:h-[560px]"
-          />
-        </section>
-      ) : null}
-
       <ol className="mt-7 space-y-2.5">
         {PIPELINE_STEPS.map((step, index) => {
           const finished = index < activeIndex;
@@ -159,6 +147,45 @@ export function GeneratingStep({
           );
         })}
       </ol>
+
+      {/* 미니게임은 진행률·단계 아래에 둔다. 사이에 끼우면 한 화면에 들어오던
+          진행 상황이 통째로 화면 밖으로 밀린다. 기다림을 덜어 주는 것이 목적이라
+          진행 상황을 가리면 안 된다. */}
+      {!error && !finished ? (
+        <section className="mt-7 overflow-hidden rounded-2xl border border-line bg-surface-muted/40">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                기다리는 동안 미니게임
+                <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
+                  GAME
+                </span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted">
+                {gameOpen
+                  ? "생성이 끝나면 결과 화면으로 자동 전환됩니다."
+                  : "닫아 두어도 생성은 계속 진행됩니다."}
+              </p>
+            </div>
+            <Button
+              onClick={() => setGameOpen((open) => !open)}
+              aria-expanded={gameOpen}
+              aria-controls="waiting-game"
+              className="shrink-0 px-3 py-1.5 text-xs"
+            >
+              {gameOpen ? "닫기" : "열기"}
+            </Button>
+          </div>
+          {/* 닫아도 iframe 을 지우지 않는다. 다시 만들면 게임이 처음부터 시작된다. */}
+          <div id="waiting-game" className={gameOpen ? "border-t border-line" : "hidden"}>
+            <iframe
+              title="영화 이모지 퀴즈"
+              src="/waiting-game.html"
+              className="h-[520px] w-full border-0 bg-transparent sm:h-[560px]"
+            />
+          </div>
+        </section>
+      ) : null}
 
       {error ? (
         <div className="mt-6 space-y-3">
