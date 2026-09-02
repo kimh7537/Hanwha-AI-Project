@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.util import Inches
+from pptx.util import Inches, Pt
 
 from app.api.presentations import PPTX_MEDIA_TYPE
 from app.main import app
@@ -55,6 +55,22 @@ def test_deck_has_cover_slides_and_appendix(result: GenerateResponse) -> None:
         assert slide.takeaway in text
 
 
+def test_body_text_is_sized_to_fit_its_band() -> None:
+    """넘친 본문이 아래 '원문 근거' 줄을 덮으면 안 된다.
+
+    문장은 자르지 않는 것이 원칙이라 줄일 수 있는 건 글자 크기뿐이고, 그것으로도 안 되면
+    호출부가 그 슬라이드를 포기한다(`_rewrite_slide` 가 False 를 돌려준다).
+    """
+    lines = ["·  " + "원문에서 그대로 가져온 긴 문장입니다. " * 6] * 4
+
+    fits = export_pptx._fit_body_size(lines, 12.0, 4.0, space_after=8)
+    assert fits is not None
+    assert export_pptx._text_height(lines, fits, 12.0, space_after=8) <= 4.0
+
+    # 자리가 없으면 억지로 밀어 넣지 않고 None 을 돌려준다.
+    assert export_pptx._fit_body_size(lines, 12.0, 0.6, space_after=8) is None
+
+
 def test_bullets_are_not_truncated(result: GenerateResponse) -> None:
     """문장을 자르면 깨진 어미가 남는다. 넘칠 때는 글자 크기를 줄인다."""
     text = _all_text(_open(export_pptx.build_pptx(result)))
@@ -64,18 +80,23 @@ def test_bullets_are_not_truncated(result: GenerateResponse) -> None:
 
 
 def test_source_refs_are_printed_on_every_slide(result: GenerateResponse) -> None:
-    """데모 성공 기준 4번 — 근거는 파일에서도 따라갈 수 있어야 한다."""
+    """데모 성공 기준 4번 — 근거는 파일에서도 따라갈 수 있어야 한다.
+
+    파일을 받아 보는 사람에게 `chunk-02` 는 아무 뜻이 없으므로 원문 쪽으로 적는다.
+    """
     presentation = _open(export_pptx.build_pptx(result))
     # 표지 다음부터가 본문 슬라이드다
     body = list(presentation.slides)[1 : 1 + len(result.slide_deck.slides)]
+    pages = {item.id: item.page for item in result.source_analysis.source_evidence}
 
     for slide_data, slide in zip(result.slide_deck.slides, body):
         text = "\n".join(
             shape.text_frame.text for shape in slide.shapes if shape.has_text_frame
         )
         assert "원문 근거:" in text
+        assert "chunk-" not in text
         for ref in slide_data.source_refs:
-            assert ref in text
+            assert f"{pages[ref]}쪽" in text
 
 
 def test_speaker_notes_carry_the_script(result: GenerateResponse) -> None:
@@ -314,3 +335,106 @@ def test_uploaded_pptx_is_kept_for_export(customer_request) -> None:
 
     exported = _open(export_pptx.build_pptx(generate(document, customer_request), template=data))
     assert _count_visuals(exported)[1] >= 1  # 원본의 성능 표가 살아 있다
+
+
+# --------------------------------------------------------------------------
+# 텍스트 상자가 여럿인 원본 (빈 레이아웃 위에 직접 만든 사내 자료 모양)
+# --------------------------------------------------------------------------
+
+
+def _template_with_many_text_boxes() -> bytes:
+    """제목 placeholder 없이 텍스트 상자만 여럿 놓인 원본.
+
+    실제 사내 자료에 흔한 모양이다. 제목 자리를 못 찾고, 가장 큰 상자 하나만 갈아 끼우던
+    시절에는 나머지 상자에 원문이 그대로 남아 새 글과 겹쳐 보였다.
+    """
+    presentation = Presentation()
+    presentation.slide_width = Inches(13.333)
+    presentation.slide_height = Inches(7.5)
+    blank = presentation.slide_layouts[6]
+
+    for number in (1, 2):
+        slide = presentation.slides.add_slide(blank)
+
+        def box(left, top, width, height, text, size):
+            shape = slide.shapes.add_textbox(
+                Inches(left), Inches(top), Inches(width), Inches(height)
+            )
+            shape.text_frame.text = text
+            shape.text_frame.paragraphs[0].runs[0].font.size = Pt(size)
+
+        box(0.7, 0.5, 12.0, 1.0, f"원본제목{number}", 36)
+        # 본문 자리를 넉넉하지 않게 둔다 — 글자 크기를 도형에 맞추지 않으면 그대로 넘친다.
+        box(0.7, 1.8, 5.8, 2.2, f"원본왼쪽본문{number}", 18)
+        box(6.8, 1.8, 5.8, 2.2, f"원본오른쪽본문{number}", 18)
+        box(0.7, 6.6, 12.0, 0.5, f"원본하단주석{number}", 12)
+
+    buffer = io.BytesIO()
+    presentation.save(buffer)
+    return buffer.getvalue()
+
+
+def test_no_original_sentence_survives_anywhere(two_slide_result: GenerateResponse) -> None:
+    """갈아 끼우지 않은 상자에 원문이 남으면 안 된다.
+
+    검증을 마친 결과 옆에 검증하지 않은 원문이 섞이는 일이라, 보기 나쁜 정도의 문제가 아니다.
+    """
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_with_many_text_boxes())
+    )
+    text = _all_text(exported)
+
+    for leftover in ("원본제목", "원본왼쪽본문", "원본오른쪽본문", "원본하단주석"):
+        assert leftover not in text, f"'{leftover}' 가 남았습니다"
+
+
+def test_title_lands_even_without_a_title_placeholder(
+    two_slide_result: GenerateResponse,
+) -> None:
+    """제목 placeholder 가 없으면 맨 위 텍스트 상자가 제목 자리다.
+
+    None 을 돌려주던 시절에는 생성된 제목이 어디에도 들어가지 않고 원본 제목이 그대로 남았다.
+    """
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_with_many_text_boxes())
+    )
+    titles = {slide_data.title for slide_data in two_slide_result.slide_deck.slides}
+    text = _all_text(exported)
+    for title in titles:
+        assert title in text
+
+
+def test_body_text_fits_inside_its_shape(two_slide_result: GenerateResponse) -> None:
+    """글자 크기를 도형 크기에 맞춘다. 글자 수만 보고 정하면 좁은 상자에서 그대로 넘친다."""
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_with_many_text_boxes())
+    )
+
+    checked = 0
+    for slide in exported.slides:
+        for shape in slide.shapes:
+            if not getattr(shape, "has_text_frame", False):
+                continue
+            lines = [line for line in shape.text_frame.text.split("\n") if line]
+            sizes = [
+                run.font.size.pt
+                for paragraph in shape.text_frame.paragraphs
+                for run in paragraph.runs
+                if run.font.size is not None
+            ]
+            if not lines or not sizes:
+                continue
+            width = shape.width / export_pptx._EMU_PER_INCH - 0.2  # noqa: SLF001
+            height = shape.height / export_pptx._EMU_PER_INCH - 0.1  # noqa: SLF001
+            if width <= 0.5 or height <= 0.2:
+                continue
+            needed = export_pptx._text_height(  # noqa: SLF001
+                lines, max(sizes), width, space_after=4
+            )
+            assert needed <= height + 0.35, (
+                f"'{lines[0][:20]}...' 가 {shape.width / export_pptx._EMU_PER_INCH:.1f}"  # noqa: SLF001
+                f"x{shape.height / export_pptx._EMU_PER_INCH:.1f}in 상자를 넘칩니다"  # noqa: SLF001
+            )
+            checked += 1
+
+    assert checked > 0, "검사한 텍스트 상자가 없습니다"

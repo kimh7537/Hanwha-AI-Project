@@ -128,15 +128,33 @@
   },
   "hotPaths": [
     {
+      "path": "components/ResultView.tsx",
+      "accessCount": 21,
+      "lastAccessed": 1788323556810,
+      "type": "file"
+    },
+    {
       "path": "components/SourceCompare.tsx",
       "accessCount": 15,
       "lastAccessed": 1788305334211,
       "type": "file"
     },
     {
-      "path": "components/ResultView.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1788278627395,
+      "path": "app/layout.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1788321538147,
+      "type": "file"
+    },
+    {
+      "path": "app/globals.css",
+      "accessCount": 3,
+      "lastAccessed": 1788321463137,
+      "type": "file"
+    },
+    {
+      "path": "components/EvidenceRef.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788322221935,
       "type": "file"
     },
     {
@@ -152,15 +170,9 @@
       "type": "file"
     },
     {
-      "path": "app/globals.css",
+      "path": "components/ThemeToggle.tsx",
       "accessCount": 1,
-      "lastAccessed": 1788321020607,
-      "type": "file"
-    },
-    {
-      "path": "app/layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788321030492,
+      "lastAccessed": 1788321503034,
       "type": "file"
     }
   ],

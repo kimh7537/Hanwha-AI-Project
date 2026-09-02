@@ -6,13 +6,38 @@
 
 from __future__ import annotations
 
-from app.models.contracts import Audience, IssueType, Purpose, ReportStatus, Severity, Style
+from app.models.contracts import (
+    Audience,
+    Interest,
+    IssueType,
+    Purpose,
+    ReportStatus,
+    Severity,
+    Style,
+)
 
 AUDIENCE_LABELS: dict[Audience, str] = {
     Audience.NEWCOMER: "신입사원",
     Audience.PRACTITIONER: "실무자",
     Audience.EXECUTIVE: "임원",
     Audience.CUSTOMER: "고객",
+}
+
+# 이해도 1~5. 색이나 숫자만으로 두지 않고 항상 이 라벨을 함께 보여준다.
+EXPERTISE_LABELS: dict[int, str] = {
+    1: "입문",
+    2: "낮음",
+    3: "보통",
+    4: "높음",
+    5: "전문가",
+}
+
+INTEREST_LABELS: dict[Interest, str] = {
+    Interest.TECHNOLOGY: "기술",
+    Interest.PERFORMANCE: "성능",
+    Interest.COST: "비용",
+    Interest.SAFETY: "안전성",
+    Interest.SCHEDULE: "일정",
 }
 
 PURPOSE_LABELS: dict[Purpose, str] = {

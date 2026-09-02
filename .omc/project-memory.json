@@ -150,9 +150,15 @@
   },
   "hotPaths": [
     {
+      "path": "backend/app/services/export_pptx.py",
+      "accessCount": 15,
+      "lastAccessed": 1788326331652,
+      "type": "file"
+    },
+    {
       "path": "docs/07-frontend-ux.md",
-      "accessCount": 11,
-      "lastAccessed": 1788310271675,
+      "accessCount": 12,
+      "lastAccessed": 1788323777142,
       "type": "file"
     },
     {
@@ -204,15 +210,15 @@
       "type": "file"
     },
     {
-      "path": "backend/app/services/export_pptx.py",
-      "accessCount": 4,
-      "lastAccessed": 1788309046025,
-      "type": "file"
-    },
-    {
       "path": "backend/app/services/slide_diff.py",
       "accessCount": 4,
       "lastAccessed": 1788310133073,
+      "type": "file"
+    },
+    {
+      "path": "frontend/lib/export.ts",
+      "accessCount": 4,
+      "lastAccessed": 1788322424506,
       "type": "file"
     },
     {
@@ -405,6 +411,42 @@
       "path": "화면캡처/비교-05.png",
       "accessCount": 1,
       "lastAccessed": 1788310640509,
+      "type": "file"
+    },
+    {
+      "path": "frontend/app/globals.css",
+      "accessCount": 1,
+      "lastAccessed": 1788321335975,
+      "type": "file"
+    },
+    {
+      "path": "frontend/app/layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788321336170,
+      "type": "file"
+    },
+    {
+      "path": "화면캡처/비교버튼-01-결과상단.png",
+      "accessCount": 1,
+      "lastAccessed": 1788323681837,
+      "type": "file"
+    },
+    {
+      "path": "화면캡처/비교버튼-02-헤더.png",
+      "accessCount": 1,
+      "lastAccessed": 1788323702621,
+      "type": "file"
+    },
+    {
+      "path": "화면캡처/비교버튼-03-오버레이.png",
+      "accessCount": 1,
+      "lastAccessed": 1788323724519,
+      "type": "file"
+    },
+    {
+      "path": "화면캡처/비교버튼-04-라이트.png",
+      "accessCount": 1,
+      "lastAccessed": 1788323754982,
       "type": "file"
     }
   ],

@@ -128,9 +128,21 @@
   },
   "hotPaths": [
     {
+      "path": "app/services/export_pptx.py",
+      "accessCount": 9,
+      "lastAccessed": 1788326573967,
+      "type": "file"
+    },
+    {
       "path": "tests/test_api.py",
       "accessCount": 6,
       "lastAccessed": 1788305823793,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_export_pptx.py",
+      "accessCount": 4,
+      "lastAccessed": 1788326595022,
       "type": "file"
     },
     {
@@ -146,9 +158,9 @@
       "type": "directory"
     },
     {
-      "path": "app/services/export_pptx.py",
+      "path": "app/services/pipeline.py",
       "accessCount": 1,
-      "lastAccessed": 1788304485448,
+      "lastAccessed": 1788326432191,
       "type": "file"
     }
   ],

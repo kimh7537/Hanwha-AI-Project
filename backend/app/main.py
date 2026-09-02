@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import documents, presentations
+from app.api import audiences, documents, presentations
 from app.config import get_settings
 from app.llm.factory import build_provider
 from app.services import render_slides, retrieval
@@ -30,6 +30,7 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
 )
 
+app.include_router(audiences.router)
 app.include_router(documents.router)
 app.include_router(presentations.router)
 

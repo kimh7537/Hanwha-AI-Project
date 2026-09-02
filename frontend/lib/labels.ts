@@ -4,6 +4,7 @@
 import type {
   Audience,
   DurationMinutes,
+  Interest,
   IssueType,
   Purpose,
   ReportStatus,
@@ -23,6 +24,23 @@ export const AUDIENCE_HINTS: Record<Audience, string> = {
   practitioner: "기술 세부사항과 적용 조건을 유지합니다",
   executive: "결론·효과·리스크와 의사결정 포인트를 앞세웁니다",
   customer: "고객 가치 중심으로 바꾸고 내부 정보를 경고합니다",
+};
+
+export const INTEREST_LABELS: Record<Interest, string> = {
+  technology: "기술",
+  performance: "성능",
+  cost: "비용",
+  safety: "안전성",
+  schedule: "일정",
+};
+
+/** 이해도 1~5. 색이나 숫자만으로 두지 않고 항상 이 라벨을 함께 보여준다. */
+export const EXPERTISE_LABELS: Record<number, string> = {
+  1: "입문",
+  2: "낮음",
+  3: "보통",
+  4: "높음",
+  5: "전문가",
 };
 
 export const PURPOSE_LABELS: Record<Purpose, string> = {

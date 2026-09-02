@@ -8,5 +8,15 @@
   ],
   "style": "persuasive",
   "preserve_original_terms": true,
-  "slide_count": 5
+  "slide_count": 5,
+  "profile": {
+    "expertise": 3,
+    "interests": [],
+    "prior_knowledge": ""
+  },
+  "message": {
+    "must_convey": "",
+    "minimize": [],
+    "banned": []
+  }
 }

@@ -17,6 +17,7 @@ LABELS_TS = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "labels.t
 
 MIRRORED = [
     ("AUDIENCE_LABELS", labels.AUDIENCE_LABELS),
+    ("INTEREST_LABELS", labels.INTEREST_LABELS),
     ("PURPOSE_LABELS", labels.PURPOSE_LABELS),
     ("STYLE_LABELS", labels.STYLE_LABELS),
     ("SEVERITY_LABELS", labels.SEVERITY_LABELS),

@@ -216,6 +216,64 @@ def _check_keywords(deck: SlideDeck, request: PresentationRequest) -> list[Verif
     return items
 
 
+def _check_message_control(
+    deck: SlideDeck, support: PresentationSupport, request: PresentationRequest
+) -> list[VerificationItem]:
+    """7) 발표자가 지정한 메시지 통제가 지켜졌는가.
+
+    통제는 고르는 단계에서 이미 반영하지만(services/profile.py) 지켜졌다고 단정하지 않는다.
+    특히 LLM 경로는 지시를 어길 수 있고, 사용 금지 표현이 남은 자료를 그대로 발표하면
+    통제 기능이 있으나 마나다. 여기서 잡아 화면에 띄운다.
+
+    금지 표현이 든 문장을 삭제하지는 않는다 — 지우면 `source_refs` 대응이 깨지고, 무엇이
+    사라졌는지 발표자가 알 수 없다. 대신 어느 슬라이드인지 짚어 준다.
+    """
+    message = request.message
+    items: list[VerificationItem] = []
+    script_by_slide = {script.slide_id: script.script for script in support.scripts}
+
+    for slide in deck.slides:
+        text = f"{slide.title} {slide.takeaway} {' '.join(slide.bullets)}"
+        text += f" {script_by_slide.get(slide.id, '')}"
+        for word in textutil.contains_any(text, message.banned):
+            items.append(
+                VerificationItem(
+                    severity=Severity.WARNING,
+                    slide_id=slide.id,
+                    type=IssueType.SENSITIVE_INFO,
+                    message=f"사용 금지로 지정한 표현 '{word}' 가 남아 있습니다.",
+                    source_refs=list(slide.source_refs),
+                    suggested_fix=f"'{word}' 를 원문 근거에 맞는 표현으로 바꾸세요.",
+                )
+            )
+
+    # 반드시 전달하라고 한 메시지가 덱 어디에도 닿지 않으면 알려 준다. 문장을 지어내 넣는 것은
+    # 원문에 없는 주장을 만드는 일이라, 넣어 주는 대신 발표자에게 돌려준다.
+    if message.must_convey:
+        tokens = [token for token in textutil.tokenize(message.must_convey)]
+        deck_text = _deck_text(deck)
+        hit = sum(1 for token in set(tokens) if token in deck_text)
+        if tokens and hit == 0:
+            items.append(
+                VerificationItem(
+                    severity=Severity.WARNING,
+                    slide_id="",
+                    type=IssueType.OMISSION,
+                    message=(
+                        "반드시 전달할 메시지로 지정한 내용이 발표자료에서 확인되지 않습니다: "
+                        f"{message.must_convey}"
+                    ),
+                    source_refs=[],
+                    suggested_fix=(
+                        "이 메시지를 뒷받침하는 근거가 원문에 있는지 확인하세요. "
+                        "근거가 없다면 발표에서 단정적으로 말하지 않아야 합니다."
+                    ),
+                )
+            )
+
+    return items[:5]
+
+
 def _check_sensitive(
     deck: SlideDeck, support: PresentationSupport, request: PresentationRequest
 ) -> list[VerificationItem]:
@@ -294,6 +352,7 @@ def verify(
     items.extend(_check_distortion(deck, analysis))
     items.extend(_check_must_keep(deck, analysis))
     items.extend(_check_keywords(deck, request))
+    items.extend(_check_message_control(deck, support, request))
     items.extend(_check_sensitive(deck, support, request))
 
     severity_order = {Severity.CRITICAL: 0, Severity.WARNING: 1, Severity.INFO: 2}

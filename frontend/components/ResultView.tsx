@@ -2,9 +2,18 @@
 
 import { useMemo, useState } from "react";
 
-import type { Audience, GenerateResponse, PageContent, VerificationReport } from "@/lib/types";
+import type {
+  Audience,
+  GenerateResponse,
+  PageContent,
+  PresentationRequest,
+  SourceEvidence,
+  VerificationReport,
+} from "@/lib/types";
 import {
   AUDIENCE_LABELS,
+  EXPERTISE_LABELS,
+  INTEREST_LABELS,
   ISSUE_TYPE_LABELS,
   PURPOSE_LABELS,
   STATUS_DESCRIPTIONS,
@@ -13,6 +22,7 @@ import {
 } from "@/lib/labels";
 import { ApiError, fetchPresentationPptx, generatePresentation } from "@/lib/api";
 import { download, downloadBlob, toMarkdown } from "@/lib/export";
+import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
 import { EvidenceDialog, EvidenceRefs } from "./EvidenceRef";
 import { SourceCompare } from "./SourceCompare";
 import {
@@ -105,6 +115,10 @@ export function ResultView({
             <Stat label="슬라이드" value={`${result.slide_deck.slides.length}장`} />
           </div>
 
+          {/* 프로파일·메시지 통제를 지정했으면 그대로 되짚는다. 무엇을 주고 받은 결과인지
+              한 화면에서 확인되지 않으면 그 입력칸은 장식으로 읽힌다. */}
+          <ProfileSummary request={result.request} />
+
           {result.meta.fallback_used ? (
             <p className="mt-4 rounded-xl border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-xs leading-relaxed text-warn">
               AI 응답에 실패해 기본 분석 결과로 대체했습니다. ({result.meta.fallback_reason})
@@ -151,9 +165,6 @@ export function ResultView({
             >
               JSON
             </Button>
-            <Button className="px-4 py-2 text-xs" onClick={() => setComparing(true)}>
-              원본과 비교
-            </Button>
             <Button className="px-4 py-2 text-xs" onClick={onRestart}>
               다른 조건으로 다시 만들기
             </Button>
@@ -174,38 +185,55 @@ export function ResultView({
         </div>
       </Card>
 
-      <div
-        role="tablist"
-        className="glass sticky top-[57px] z-30 flex flex-wrap gap-1 rounded-2xl border border-line p-1.5"
-      >
-        {TABS.map((name) => (
-          <button
-            key={name}
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
-              tab === name
-                ? "bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-[0_10px_26px_-14px_rgba(255,138,61,0.95)]"
-                : "text-muted hover:bg-surface-muted hover:text-foreground"
-            }`}
-          >
-            {name}
-          </button>
-        ))}
+      <div className="glass sticky top-[57px] z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-line p-1.5">
+        <div role="tablist" className="flex flex-wrap gap-1">
+          {TABS.map((name) => (
+            <button
+              key={name}
+              role="tab"
+              aria-selected={tab === name}
+              onClick={() => setTab(name)}
+              className={`rounded-xl px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
+                tab === name
+                  ? "bg-gradient-to-br from-accent to-accent-2 text-accent-ink shadow-[0_10px_26px_-14px_rgba(255,138,61,0.95)]"
+                  : "text-muted hover:bg-surface-muted hover:text-foreground"
+              }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        {/* 다운로드 줄에 섞여 있으면 파일 저장 버튼으로 읽힌다. 이건 저장이 아니라 "보는" 기능이고
+         * 결과를 훑는 내내 손에 닿아야 해서, 스크롤을 따라오는 이 줄에 따로 세운다.
+         * 탭이 아니라 오버레이를 여는 버튼이므로 `role="tablist"` 밖이다. */}
+        <button
+          type="button"
+          onClick={() => setComparing(true)}
+          className="ml-auto flex items-center gap-1.5 rounded-xl border border-accent/45 bg-accent-soft px-3.5 py-2 text-xs font-semibold text-accent transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_12px_28px_-16px_rgba(255,138,61,0.9)] sm:text-sm"
+        >
+          <span aria-hidden>⇄</span>
+          원본과 비교
+        </button>
       </div>
+      <p className="-mt-1 px-1.5 text-[11px] leading-relaxed text-muted">
+        <span className="font-semibold text-foreground">원본과 비교</span> — 업로드한 원본과 생성된
+        슬라이드를 한 장씩 나란히 놓고, 달라진 자리를 빨간 네모로 표시합니다.
+      </p>
 
       {tab === "발표자료" ? (
-        <SlidesPanel result={result} onSelectEvidence={setEvidenceId} />
+        <SlidesPanel result={result} evidence={evidenceById} onSelectEvidence={setEvidenceId} />
       ) : null}
       {tab === "청중 비교" ? <ComparePanel result={result} /> : null}
       {tab === "발표 스크립트" ? <ScriptsPanel result={result} /> : null}
-      {tab === "예상 Q&A" ? <QAPanel result={result} onSelectEvidence={setEvidenceId} /> : null}
+      {tab === "예상 Q&A" ? (
+        <QAPanel result={result} evidence={evidenceById} onSelectEvidence={setEvidenceId} />
+      ) : null}
       {tab === "정확성 검증" ? (
         <VerificationPanel
           report={activeReport}
           verifying={verifying}
           unverified={result.source_analysis.unverified}
+          evidence={evidenceById}
           onSelectEvidence={setEvidenceId}
         />
       ) : null}
@@ -287,15 +315,7 @@ function ComparePanel({ result }: { result: GenerateResponse }) {
           ))}
         </div>
 
-        {working ? (
-          <div className="mt-5 space-y-2" aria-live="polite">
-            <p className="text-xs text-muted">
-              {other ? AUDIENCE_LABELS[other] : ""}용으로 다시 설계하는 중입니다…
-            </p>
-            <span aria-hidden className="shimmer block h-2 w-2/3 rounded-full" />
-            <span aria-hidden className="shimmer block h-2 w-1/2 rounded-full" />
-          </div>
-        ) : null}
+        {working ? <CompareProgress audience={other} /> : null}
 
         {error ? (
           <p role="alert" className="mt-4 text-xs text-danger">
@@ -329,7 +349,60 @@ function ComparePanel({ result }: { result: GenerateResponse }) {
           <CompareColumn result={compared} note="청중만 바꾼 자료" highlight />
         </div>
       ) : null}
+
+      {/* 만들어지는 동안에도 결과가 들어올 자리를 그려 둔다. 화면이 비어 있으면
+          버튼이 먹지 않은 것처럼 보인다. */}
+      {working ? (
+        <div aria-hidden className="grid gap-3 md:grid-cols-2">
+          <ComparePlaceholder />
+          <ComparePlaceholder />
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/** 비교 생성도 generate 를 한 번 더 부르는 일이라 생성 화면과 같은 방식으로 기다린다. */
+function CompareProgress({ audience }: { audience: Audience | null }) {
+  const elapsed = useElapsed(true);
+  const percent = creepPercent(elapsed);
+
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs text-muted" aria-live="polite">
+          {audience ? AUDIENCE_LABELS[audience] : ""}용으로 다시 설계하는 중입니다
+        </p>
+        <p className="text-xs tabular-nums text-muted">
+          <span className="font-semibold text-accent">{percent}%</span> ·{" "}
+          {formatElapsed(elapsed)} 경과
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-[width] duration-700 ease-out"
+          style={{ width: `${Math.max(percent, 4)}%` }}
+        />
+      </div>
+      <p key={tipAt(elapsed)} className="animate-in mt-3 text-xs leading-relaxed text-muted">
+        <span aria-hidden className="mr-1.5 text-accent">
+          ●
+        </span>
+        {tipAt(elapsed)}
+      </p>
+    </div>
+  );
+}
+
+function ComparePlaceholder() {
+  return (
+    <Card className="space-y-3 p-5">
+      <span className="shimmer block h-3 w-1/3 rounded-full" />
+      <span className="shimmer block h-2.5 w-4/5 rounded-full" />
+      <span className="shimmer block h-2.5 w-2/3 rounded-full" />
+      <span className="shimmer block h-2.5 w-3/4 rounded-full" />
+      <span className="shimmer block h-2.5 w-1/2 rounded-full" />
+    </Card>
   );
 }
 
@@ -383,9 +456,11 @@ function CompareColumn({
 
 function SlidesPanel({
   result,
+  evidence,
   onSelectEvidence,
 }: {
   result: GenerateResponse;
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   return (
@@ -399,11 +474,45 @@ function SlidesPanel({
             >
               ✦
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <Kicker>AI 구성 전략</Kicker>
               <p className="mt-2 text-sm leading-relaxed">{result.slide_deck.strategy}</p>
-              <p className="mt-2.5 text-xs leading-relaxed text-muted">
-                같은 원문이라도 청중이 달라지면 무엇을 넣고 뺄지, 몇 장으로 나눌지가 함께 바뀝니다.
+
+              {/* 조건 화면이 생성 전에 예고한 것과 같은 뼈대를, 이번에는 실제로 만들어진
+                  제목으로 되짚는다. 예고와 결과가 같은 모양이어야 "구성을 다시 설계한다"는
+                  말이 화면에서 확인된다. */}
+              <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                {AUDIENCE_LABELS[result.request.audience]}에게 실제로 만들어진 순서
+              </p>
+              <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+                {result.slide_deck.slides.map((slide, index) => (
+                  <li key={slide.id} className="flex items-center gap-1.5">
+                    {index > 0 ? (
+                      <span aria-hidden className="text-xs text-muted">
+                        →
+                      </span>
+                    ) : null}
+                    <span className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-muted/70 px-2.5 py-1 text-xs font-medium">
+                      <span aria-hidden className="font-mono text-[10px] text-accent">
+                        {index + 1}
+                      </span>
+                      {slide.title}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                용어 풀이{" "}
+                <span className="font-semibold text-foreground">
+                  {result.audience_content.glossary.length}개
+                </span>
+                {" · "}슬라이드{" "}
+                <span className="font-semibold text-foreground">
+                  {result.slide_deck.slides.length}장
+                </span>
+                . 같은 원문이라도 청중이 달라지면 무엇을 넣고 뺄지, 어떤 순서로 둘지, 몇 장으로
+                나눌지가 함께 바뀝니다.
               </p>
             </div>
           </div>
@@ -437,7 +546,7 @@ function SlidesPanel({
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
                 <p className="text-xs text-muted">추천 시각자료: {slide.visual_suggestion}</p>
-                <EvidenceRefs refs={slide.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={slide.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             </div>
           </div>
@@ -503,9 +612,11 @@ function ScriptsPanel({ result }: { result: GenerateResponse }) {
 
 function QAPanel({
   result,
+  evidence,
   onSelectEvidence,
 }: {
   result: GenerateResponse;
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   const { qa, rehearsal_cards } = result.presentation_support;
@@ -537,7 +648,7 @@ function QAPanel({
                 <span>{item.answer}</span>
               </p>
               <div className="mt-4 border-t border-line pt-3.5">
-                <EvidenceRefs refs={item.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={item.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             </Card>
           );
@@ -569,11 +680,13 @@ function VerificationPanel({
   report,
   verifying,
   unverified,
+  evidence,
   onSelectEvidence,
 }: {
   report: VerificationReport | null;
   verifying: boolean;
   unverified: string[];
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   if (verifying || !report) {
@@ -625,7 +738,7 @@ function VerificationPanel({
             </p>
             {item.source_refs.length > 0 ? (
               <div className="mt-3.5">
-                <EvidenceRefs refs={item.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={item.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             ) : null}
           </Card>
@@ -652,5 +765,59 @@ function VerificationPanel({
         발표자에게 있습니다.
       </p>
     </div>
+  );
+}
+
+/** 지정한 청중 프로파일·메시지 통제를 결과 화면에서 되짚는다.
+ *
+ * 아무것도 지정하지 않았으면 아무것도 그리지 않는다 — 기본값을 늘어놓으면 조건을 실제로
+ * 준 경우와 구분되지 않는다.
+ */
+function ProfileSummary({ request }: { request: PresentationRequest }) {
+  const { profile, message } = request;
+  const chips: { label: string; value: string }[] = [];
+
+  if (profile.expertise !== 3) {
+    chips.push({
+      label: "기술 이해도",
+      value: `${EXPERTISE_LABELS[profile.expertise]} (${profile.expertise}/5)`,
+    });
+  }
+  if (profile.interests.length > 0) {
+    chips.push({
+      label: "관심 영역",
+      value: profile.interests.map((item) => INTEREST_LABELS[item]).join(" · "),
+    });
+  }
+  if (profile.prior_knowledge) {
+    chips.push({ label: "이미 아는 것", value: profile.prior_knowledge });
+  }
+  if (message.must_convey) {
+    chips.push({ label: "반드시 전달", value: message.must_convey });
+  }
+  if (request.keywords.length > 0) {
+    chips.push({ label: "강조", value: request.keywords.join(" · ") });
+  }
+  if (message.minimize.length > 0) {
+    chips.push({ label: "최소화", value: message.minimize.join(" · ") });
+  }
+  if (message.banned.length > 0) {
+    chips.push({ label: "사용 금지", value: message.banned.join(" · ") });
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <dl className="mt-3 flex flex-wrap gap-2">
+      {chips.map((chip) => (
+        <div
+          key={chip.label}
+          className="flex items-baseline gap-1.5 rounded-lg border border-line bg-surface-muted/60 px-2.5 py-1"
+        >
+          <dt className="text-[10px] uppercase tracking-wider text-muted">{chip.label}</dt>
+          <dd className="text-xs font-medium">{chip.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

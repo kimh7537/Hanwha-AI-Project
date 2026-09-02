@@ -16,7 +16,7 @@ from app.models.contracts import (
     SourceAnalysis,
 )
 from app.prompts import planner as planner_prompt
-from app.services import textutil
+from app.services import profile, textutil
 from app.services.evidence import inherit_refs, valid_refs
 
 STAGE = "슬라이드 설계"
@@ -25,12 +25,13 @@ MIN_SLIDES = 3
 MAX_SLIDES = 10
 
 # 발표 시간별 기본 장수 (docs/04-slide-planner.md)
-_DURATION_SLIDES = {3: 4, 5: 5, 10: 7}
+# 조건 화면이 생성 전에 예상 장수를 보여주므로 /api/audiences 로 그대로 내보낸다.
+DURATION_SLIDES = {3: 4, 5: 5, 10: 7}
 
 # 같은 시간이라도 청중에 따라 덱의 밀도가 다르다. 시간은 상한이지 배분이 아니다.
 # 신입은 사전 지식을 가정할 수 없어 한 단계를 더 쪼개야 하고, 임원은 결론으로 압축해야 한다.
 # 이 값이 0 이 아니어야 "청중을 바꾸면 구성이 다시 설계된다"는 말이 성립한다.
-_AUDIENCE_SLIDE_DELTA: dict[Audience, int] = {
+AUDIENCE_SLIDE_DELTA: dict[Audience, int] = {
     Audience.NEWCOMER: 1,
     Audience.PRACTITIONER: 1,
     Audience.EXECUTIVE: -1,
@@ -92,15 +93,21 @@ def resolve_slide_count(request: PresentationRequest) -> int:
     if request.slide_count:
         return max(MIN_SLIDES, min(MAX_SLIDES, request.slide_count))
 
-    count = _DURATION_SLIDES.get(request.duration_minutes, 5)
-    count += _AUDIENCE_SLIDE_DELTA.get(request.audience, 0)
+    count = DURATION_SLIDES.get(request.duration_minutes, 5)
+    count += AUDIENCE_SLIDE_DELTA.get(request.audience, 0)
     return max(MIN_SLIDES, min(MAX_SLIDES, count))
 
 
 def build_strategy(request: PresentationRequest, slide_count: int) -> str:
-    """"왜 이 구성인가"를 한 문단으로. 청중이 바뀌면 앞 절과 장수가 함께 바뀐다."""
+    """"왜 이 구성인가"를 한 문단으로. 청중이 바뀌면 앞 절과 장수가 함께 바뀐다.
+
+    프로파일·메시지 통제를 지정했으면 그것이 무엇을 했는지도 함께 적는다. 화면에서 "내가 준
+    조건이 실제로 반영됐나"를 확인할 수 있는 자리가 여기뿐이다.
+    """
     principle = _AUDIENCE_STRATEGY.get(request.audience, "")
-    return f"{principle}. {request.duration_minutes}분 기준 {slide_count}장으로 맞췄습니다."
+    sentences = [f"{principle}. {request.duration_minutes}분 기준 {slide_count}장으로 맞췄습니다."]
+    sentences.extend(f"{note}." for note in profile.describe(request))
+    return " ".join(sentences)
 
 
 def _bullets_from_text(text: str, limit: int = 4) -> list[str]:
