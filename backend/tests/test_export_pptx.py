@@ -55,6 +55,22 @@ def test_deck_has_cover_slides_and_appendix(result: GenerateResponse) -> None:
         assert slide.takeaway in text
 
 
+def test_body_text_is_sized_to_fit_its_band() -> None:
+    """넘친 본문이 아래 '원문 근거' 줄을 덮으면 안 된다.
+
+    문장은 자르지 않는 것이 원칙이라 줄일 수 있는 건 글자 크기뿐이고, 그것으로도 안 되면
+    호출부가 그 슬라이드를 포기한다(`_rewrite_slide` 가 False 를 돌려준다).
+    """
+    lines = ["·  " + "원문에서 그대로 가져온 긴 문장입니다. " * 6] * 4
+
+    fits = export_pptx._fit_body_size(lines, 12.0, 4.0, space_after=8)
+    assert fits is not None
+    assert export_pptx._text_height(lines, fits, 12.0, space_after=8) <= 4.0
+
+    # 자리가 없으면 억지로 밀어 넣지 않고 None 을 돌려준다.
+    assert export_pptx._fit_body_size(lines, 12.0, 0.6, space_after=8) is None
+
+
 def test_bullets_are_not_truncated(result: GenerateResponse) -> None:
     """문장을 자르면 깨진 어미가 남는다. 넘칠 때는 글자 크기를 줄인다."""
     text = _all_text(_open(export_pptx.build_pptx(result)))

@@ -154,6 +154,34 @@ def _body_size(texts: list[str], base: float = 18) -> float:
     return base
 
 
+def _text_height(lines: list[str], size: float, width: float, *, space_after: float) -> float:
+    """줄바꿈까지 셈한 대략의 글 높이(인치).
+
+    한글은 글자 하나가 거의 정사각형이라 글자 폭을 글자 크기와 같다고 본다. 라틴 문자는
+    이보다 좁아 실제보다 넉넉히 잡히는데, 모자라게 잡아 겹치는 것보다 낫다.
+    """
+    per_line = max(int(width * 72 / size), 1)
+    rows = sum(max(-(-len(line) // per_line), 1) for line in lines)
+    return (rows * size * 1.25 + len(lines) * space_after) / 72
+
+
+def _fit_body_size(
+    lines: list[str], width: float, height: float, *, space_after: float, floor: float = 9
+) -> float | None:
+    """주어진 자리에 들어가는 가장 큰 글자 크기. `floor` 로도 넘치면 None.
+
+    `_body_size` 는 글자 수만 보므로 자리가 좁으면 그대로 넘쳐 아래 footer 를 덮는다.
+    문장을 자르지 않는 것이 원칙이라(docs/04-slide-planner.md) 줄일 수 있는 건 글자 크기뿐이고,
+    그것으로도 안 되면 호출부가 그 슬라이드를 포기하거나 바닥 크기로 놓는다.
+    """
+    size = _body_size(lines)
+    while _text_height(lines, size, width, space_after=space_after) > height:
+        size -= 1
+        if size < floor:
+            return None
+    return size
+
+
 def _shrink(total_chars: int, *, soft: int, hard: int) -> float:
     """부록처럼 글자 크기가 여러 단계인 영역에서 한꺼번에 줄일 폭."""
     if total_chars > hard:
@@ -259,10 +287,14 @@ def _add_content_slide(
         _line(frame, slide_data.takeaway, 15, first=True, bold=True)
 
     body_top = 2.75 if slide_data.takeaway else 1.75
-    frame = _textbox(slide, _MARGIN + 0.15, body_top, content_w - 0.3, h - 1.35 - body_top)
-    size = _body_size(slide_data.bullets)
-    for order, bullet in enumerate(slide_data.bullets):
-        paragraph = _line(frame, f"·  {bullet}", size, first=order == 0, space_after=10)
+    body_w = content_w - 0.3
+    body_h = h - 1.35 - body_top
+    frame = _textbox(slide, _MARGIN + 0.15, body_top, body_w, body_h)
+    bullets = [f"·  {bullet}" for bullet in slide_data.bullets]
+    # 바닥 크기로도 넘치면 그대로 놓는다 — 새로 그리는 경로에는 물러설 자리가 없다.
+    size = _fit_body_size(bullets, body_w, body_h, space_after=10) or 9
+    for order, bullet in enumerate(bullets):
+        paragraph = _line(frame, bullet, size, first=order == 0, space_after=10)
         paragraph.line_spacing = 1.25
 
     _rect(slide, _MARGIN, h - 1.2, content_w, 0.02, _BORDER)
@@ -531,12 +563,18 @@ def _rewrite_slide(
         if band is None:
             return False
         top, band_height = band
-        frame = _textbox(slide, _MARGIN, top + 0.1, w - _MARGIN * 2, band_height - 0.2)
-        size = _body_size(lines)
-        for order, line in enumerate(lines):
+        band_w = w - _MARGIN * 2
+        band_h = band_height - 0.2
+        bullets = [f"·  {line}" for line in lines]
+        # 빈 구간에 안 들어가면 얹지 않는다. 넘친 글은 원본 그림·표와 아래 근거 줄을 덮는다.
+        size = _fit_body_size(bullets, band_w, band_h, space_after=8)
+        if size is None:
+            return False
+        frame = _textbox(slide, _MARGIN, top + 0.1, band_w, band_h)
+        for order, bullet in enumerate(bullets):
             _line(
                 frame,
-                f"·  {line}",
+                bullet,
                 size,
                 first=order == 0,
                 bold=order == 0 and bool(slide_data.takeaway),
