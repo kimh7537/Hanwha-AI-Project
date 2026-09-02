@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 
-import type { Audience, GenerateResponse, PageContent, VerificationReport } from "@/lib/types";
+import type {
+  Audience,
+  GenerateResponse,
+  PageContent,
+  SourceEvidence,
+  VerificationReport,
+} from "@/lib/types";
 import {
   AUDIENCE_LABELS,
   ISSUE_TYPE_LABELS,
@@ -196,16 +202,19 @@ export function ResultView({
       </div>
 
       {tab === "발표자료" ? (
-        <SlidesPanel result={result} onSelectEvidence={setEvidenceId} />
+        <SlidesPanel result={result} evidence={evidenceById} onSelectEvidence={setEvidenceId} />
       ) : null}
       {tab === "청중 비교" ? <ComparePanel result={result} /> : null}
       {tab === "발표 스크립트" ? <ScriptsPanel result={result} /> : null}
-      {tab === "예상 Q&A" ? <QAPanel result={result} onSelectEvidence={setEvidenceId} /> : null}
+      {tab === "예상 Q&A" ? (
+        <QAPanel result={result} evidence={evidenceById} onSelectEvidence={setEvidenceId} />
+      ) : null}
       {tab === "정확성 검증" ? (
         <VerificationPanel
           report={activeReport}
           verifying={verifying}
           unverified={result.source_analysis.unverified}
+          evidence={evidenceById}
           onSelectEvidence={setEvidenceId}
         />
       ) : null}
@@ -383,9 +392,11 @@ function CompareColumn({
 
 function SlidesPanel({
   result,
+  evidence,
   onSelectEvidence,
 }: {
   result: GenerateResponse;
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   return (
@@ -437,7 +448,7 @@ function SlidesPanel({
 
               <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3.5">
                 <p className="text-xs text-muted">추천 시각자료: {slide.visual_suggestion}</p>
-                <EvidenceRefs refs={slide.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={slide.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             </div>
           </div>
@@ -503,9 +514,11 @@ function ScriptsPanel({ result }: { result: GenerateResponse }) {
 
 function QAPanel({
   result,
+  evidence,
   onSelectEvidence,
 }: {
   result: GenerateResponse;
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   const { qa, rehearsal_cards } = result.presentation_support;
@@ -537,7 +550,7 @@ function QAPanel({
                 <span>{item.answer}</span>
               </p>
               <div className="mt-4 border-t border-line pt-3.5">
-                <EvidenceRefs refs={item.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={item.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             </Card>
           );
@@ -569,11 +582,13 @@ function VerificationPanel({
   report,
   verifying,
   unverified,
+  evidence,
   onSelectEvidence,
 }: {
   report: VerificationReport | null;
   verifying: boolean;
   unverified: string[];
+  evidence: Map<string, SourceEvidence>;
   onSelectEvidence: (id: string) => void;
 }) {
   if (verifying || !report) {
@@ -625,7 +640,7 @@ function VerificationPanel({
             </p>
             {item.source_refs.length > 0 ? (
               <div className="mt-3.5">
-                <EvidenceRefs refs={item.source_refs} onSelect={onSelectEvidence} />
+                <EvidenceRefs refs={item.source_refs} evidence={evidence} onSelect={onSelectEvidence} />
               </div>
             ) : null}
           </Card>

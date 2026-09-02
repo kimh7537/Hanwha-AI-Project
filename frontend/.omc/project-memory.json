@@ -128,15 +128,15 @@
   },
   "hotPaths": [
     {
-      "path": "components/SourceCompare.tsx",
-      "accessCount": 15,
-      "lastAccessed": 1788305334211,
+      "path": "components/ResultView.tsx",
+      "accessCount": 18,
+      "lastAccessed": 1788322310556,
       "type": "file"
     },
     {
-      "path": "components/ResultView.tsx",
-      "accessCount": 9,
-      "lastAccessed": 1788278627395,
+      "path": "components/SourceCompare.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1788305334211,
       "type": "file"
     },
     {
@@ -149,6 +149,12 @@
       "path": "app/globals.css",
       "accessCount": 3,
       "lastAccessed": 1788321463137,
+      "type": "file"
+    },
+    {
+      "path": "components/EvidenceRef.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1788322221935,
       "type": "file"
     },
     {

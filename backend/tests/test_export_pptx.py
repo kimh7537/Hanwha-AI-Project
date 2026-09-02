@@ -64,18 +64,23 @@ def test_bullets_are_not_truncated(result: GenerateResponse) -> None:
 
 
 def test_source_refs_are_printed_on_every_slide(result: GenerateResponse) -> None:
-    """데모 성공 기준 4번 — 근거는 파일에서도 따라갈 수 있어야 한다."""
+    """데모 성공 기준 4번 — 근거는 파일에서도 따라갈 수 있어야 한다.
+
+    파일을 받아 보는 사람에게 `chunk-02` 는 아무 뜻이 없으므로 원문 쪽으로 적는다.
+    """
     presentation = _open(export_pptx.build_pptx(result))
     # 표지 다음부터가 본문 슬라이드다
     body = list(presentation.slides)[1 : 1 + len(result.slide_deck.slides)]
+    pages = {item.id: item.page for item in result.source_analysis.source_evidence}
 
     for slide_data, slide in zip(result.slide_deck.slides, body):
         text = "\n".join(
             shape.text_frame.text for shape in slide.shapes if shape.has_text_frame
         )
         assert "원문 근거:" in text
+        assert "chunk-" not in text
         for ref in slide_data.source_refs:
-            assert ref in text
+            assert f"{pages[ref]}쪽" in text
 
 
 def test_speaker_notes_carry_the_script(result: GenerateResponse) -> None:

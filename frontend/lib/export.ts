@@ -9,6 +9,20 @@ export function toMarkdown(result: GenerateResponse): string {
   const scriptOf = (slideId: string) =>
     presentation_support.scripts.find((script) => script.slide_id === slideId);
 
+  // `chunk-02` 는 내부 식별자다. 파일을 받아 보는 사람이 원문에서 찾아갈 수 있도록 쪽으로 적는다.
+  const pageOf = new Map(
+    result.source_analysis.source_evidence.map((item) => [item.id, item.page]),
+  );
+  const refsLabel = (refs: string[]) => {
+    const labels: string[] = [];
+    for (const ref of refs) {
+      const page = pageOf.get(ref);
+      const label = page === undefined ? ref : `${page}쪽`;
+      if (!labels.includes(label)) labels.push(label);
+    }
+    return labels.join(", ") || "없음";
+  };
+
   const lines: string[] = [
     `# ${slide_deck.title}`,
     "",
@@ -27,7 +41,7 @@ export function toMarkdown(result: GenerateResponse): string {
     lines.push(`**핵심 한 줄** ${slide.takeaway}`, "");
     slide.bullets.forEach((bullet) => lines.push(`- ${bullet}`));
     lines.push("", `추천 시각자료: ${slide.visual_suggestion}`);
-    lines.push(`원문 근거: ${slide.source_refs.join(", ") || "없음"}`, "");
+    lines.push(`원문 근거: ${refsLabel(slide.source_refs)}`, "");
     if (script) {
       lines.push(`### 발표 스크립트 (약 ${script.duration_seconds}초)`, "", script.script, "");
       lines.push(`> 꼭 말할 것: ${script.must_say}`, "");
@@ -37,7 +51,7 @@ export function toMarkdown(result: GenerateResponse): string {
   lines.push("---", "", "## 예상 질문과 답변", "");
   presentation_support.qa.forEach((item) => {
     lines.push(`**Q. ${item.question}**`, "", `A. ${item.answer}`, "");
-    lines.push(`원문 근거: ${item.source_refs.join(", ") || "없음"}`, "");
+    lines.push(`원문 근거: ${refsLabel(item.source_refs)}`, "");
   });
 
   if (verification_report) {

@@ -134,9 +134,21 @@
       "type": "file"
     },
     {
+      "path": "app/services/export_pptx.py",
+      "accessCount": 3,
+      "lastAccessed": 1788322734703,
+      "type": "file"
+    },
+    {
       "path": "app/services/render_slides.py",
       "accessCount": 2,
       "lastAccessed": 1788305020919,
+      "type": "file"
+    },
+    {
+      "path": "tests/test_export_pptx.py",
+      "accessCount": 2,
+      "lastAccessed": 1788322762105,
       "type": "file"
     },
     {
@@ -144,12 +156,6 @@
       "accessCount": 1,
       "lastAccessed": 1788304417615,
       "type": "directory"
-    },
-    {
-      "path": "app/services/export_pptx.py",
-      "accessCount": 1,
-      "lastAccessed": 1788304485448,
-      "type": "file"
     }
   ],
   "userDirectives": []

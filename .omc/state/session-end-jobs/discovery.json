@@ -1,41 +1,46 @@
 {
   "version": 2,
-  "cursor": 2,
+  "cursor": 5,
   "tickets": [
     {
       "sessionId": "986ea73f-0744-43d3-bfd8-a45b8323a755",
       "attempts": 0,
       "retryAt": "2026-09-01T15:26:26.751Z",
-      "claimNonce": "b16d7dcd-b040-40a3-9aed-363988d1ee54",
-      "leaseExpiresAt": "2026-09-02T03:54:42.686Z"
+      "claimNonce": "efe0f08a-91bc-4237-8462-928a10d3a2cd",
+      "leaseExpiresAt": "2026-09-02T04:15:43.164Z"
     },
     {
       "sessionId": "6de5e0c8-7fd8-434e-b7c2-4c8aa17c62f7",
       "attempts": 0,
       "retryAt": "2026-09-01T15:59:25.208Z",
-      "claimNonce": "71208e77-17c6-4136-94bf-f6fb84cb2b0b",
-      "leaseExpiresAt": "2026-09-02T03:54:42.686Z"
+      "claimNonce": "0e81a9d5-b9e0-4bcb-aed8-d4cfab8d7077",
+      "leaseExpiresAt": "2026-09-02T04:18:52.983Z"
     },
     {
       "sessionId": "f634ddf8-91a0-46cf-bf0d-5af623f6061f",
       "attempts": 0,
       "retryAt": "2026-09-01T23:01:42.296Z",
-      "claimNonce": "344cf400-0ac2-46db-a4c5-31e82c3540d7",
-      "leaseExpiresAt": "2026-09-02T03:51:13.870Z"
+      "claimNonce": "2f172dd0-4f1b-4ea8-a558-1eafbc37c286",
+      "leaseExpiresAt": "2026-09-02T04:18:52.983Z"
     },
     {
       "sessionId": "c3652e7a-5b0d-4459-bf1c-3310140c23f4",
       "attempts": 0,
       "retryAt": "2026-09-01T23:08:04.087Z",
-      "claimNonce": "fce4a35b-0afb-41ba-a9d0-f299c7bce87f",
-      "leaseExpiresAt": "2026-09-02T03:54:42.686Z"
+      "claimNonce": "dfccccd0-a16b-4743-8dbd-3867dea456f0",
+      "leaseExpiresAt": "2026-09-02T04:18:52.983Z"
     },
     {
       "sessionId": "04612a92-e22e-4a8b-add8-bfca8e174d38",
       "attempts": 0,
       "retryAt": "2026-09-02T00:42:42.518Z",
-      "claimNonce": "d602e77f-18be-4ac5-b564-d36b12130410",
-      "leaseExpiresAt": "2026-09-02T03:54:42.686Z"
+      "claimNonce": "7402442f-fab6-4580-b89a-b9f357d15d60",
+      "leaseExpiresAt": "2026-09-02T04:18:52.983Z"
+    },
+    {
+      "sessionId": "83aca5ce-2b4f-4827-bab0-285af4f7938e",
+      "attempts": 0,
+      "retryAt": "2026-09-02T04:15:52.333Z"
     }
   ]
 }

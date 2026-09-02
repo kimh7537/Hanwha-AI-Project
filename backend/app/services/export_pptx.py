@@ -228,8 +228,24 @@ def _add_title_slide(presentation, result: GenerateResponse) -> None:
     _line(footer, _DISCLAIMER, 11, first=True, color=_MUTED)
 
 
+def _refs_label(result: GenerateResponse, refs: list[str]) -> str:
+    """근거를 파일에 적는 말. `chunk-02` 는 내부 식별자라 원문 쪽으로 바꿔 부른다.
+
+    받아 본 사람이 원문에서 그 자리를 펴 볼 수 있어야 근거 표기가 제 역할을 한다.
+    쪽을 못 찾은 근거는 지우지 않고 식별자 그대로 남긴다 — 추적을 끊는 것보다 낫다.
+    화면(`frontend/components/EvidenceRef.tsx`)과 Markdown 도 같은 규칙을 쓴다.
+    """
+    pages = {item.id: item.page for item in result.source_analysis.source_evidence}
+    labels: list[str] = []
+    for ref in refs:
+        label = f"{pages[ref]}쪽" if ref in pages else ref
+        if label not in labels:
+            labels.append(label)
+    return ", ".join(labels) or "없음"
+
+
 def _add_content_slide(
-    presentation, slide_data: Slide, index: int, total: int, notes: str
+    presentation, slide_data: Slide, index: int, total: int, notes: str, refs: str
 ) -> None:
     slide = _blank(presentation)
     w, h = _geom(presentation)
@@ -261,7 +277,7 @@ def _add_content_slide(
     )
     _line(
         footer,
-        f"원문 근거: {', '.join(slide_data.source_refs) or '없음'}",
+        f"원문 근거: {refs}",
         10.5,
         first=False,
         color=_MUTED,
@@ -295,7 +311,7 @@ def _add_qa_slides(presentation, result: GenerateResponse) -> None:
             _line(frame, f"A. {item.answer}", 13 - drop, first=False, space_after=3)
             _line(
                 frame,
-                f"원문 근거: {', '.join(item.source_refs) or '없음'}",
+                f"원문 근거: {_refs_label(result, item.source_refs)}",
                 10.5 - drop / 2,
                 first=False,
                 color=_MUTED,
@@ -384,7 +400,7 @@ def _speaker_notes(result: GenerateResponse, slide_data: Slide) -> str:
     if script.must_say:
         parts.append(f"꼭 말할 것: {script.must_say}")
     if slide_data.source_refs:
-        parts.append(f"원문 근거: {', '.join(slide_data.source_refs)}")
+        parts.append(f"원문 근거: {_refs_label(result, slide_data.source_refs)}")
     return "\n\n".join(part for part in parts if part)
 
 
@@ -494,7 +510,9 @@ def _free_band(slide, height: float) -> tuple[float, float] | None:
     return best if best[1] >= 1.0 else None
 
 
-def _rewrite_slide(slide, slide_data: Slide, notes: str, w: float, h: float) -> bool:
+def _rewrite_slide(
+    slide, slide_data: Slide, notes: str, refs: str, w: float, h: float
+) -> bool:
     """원본 슬라이드의 글만 청중용 내용으로 바꾼다. 이미지·표·배경은 그대로 둔다.
 
     글을 놓을 자리를 못 찾으면 False 를 돌려주고, 호출부가 그 슬라이드를 새로 그린다.
@@ -528,7 +546,7 @@ def _rewrite_slide(slide, slide_data: Slide, notes: str, w: float, h: float) -> 
     footer = _textbox(slide, _MARGIN, h - 0.42, w - _MARGIN * 2, 0.3)
     _line(
         footer,
-        f"원문 근거: {', '.join(slide_data.source_refs) or '없음'}",
+        f"원문 근거: {refs}",
         9,
         first=True,
         color=_MUTED,
@@ -581,13 +599,14 @@ def _build_on_template(result: GenerateResponse, template: bytes) -> bytes:
     deck = result.slide_deck.slides
     for index, slide_data in enumerate(deck, start=1):
         notes = _speaker_notes(result, slide_data)
+        refs = _refs_label(result, slide_data.source_refs)
         source = _source_slide_index(slide_data, pages, len(originals), used)
         if source is not None:
             used.add(source)
-            if _rewrite_slide(originals[source], slide_data, notes, w, h):
+            if _rewrite_slide(originals[source], slide_data, notes, refs, w, h):
                 order.append(original_ids[source])
                 continue
-        _add_content_slide(presentation, slide_data, index, len(deck), notes)
+        _add_content_slide(presentation, slide_data, index, len(deck), notes, refs)
         order.append(list(slide_ids)[-1])
 
     before = len(list(slide_ids))
@@ -637,7 +656,12 @@ def build_pptx(result: GenerateResponse, template: bytes | None = None) -> bytes
     slides = result.slide_deck.slides
     for index, slide_data in enumerate(slides, start=1):
         _add_content_slide(
-            presentation, slide_data, index, len(slides), _speaker_notes(result, slide_data)
+            presentation,
+            slide_data,
+            index,
+            len(slides),
+            _speaker_notes(result, slide_data),
+            _refs_label(result, slide_data.source_refs),
         )
 
     _add_qa_slides(presentation, result)
