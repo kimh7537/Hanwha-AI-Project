@@ -55,9 +55,17 @@
 
 ## 디자인 방향
 
-**다크 한 벌**로 고정한다. 시연 환경의 OS 설정에 따라 화면이 달라지면 안 되므로
-`prefers-color-scheme` 분기를 두지 않는다. 오렌지 포인트 색상(`--accent`)을 강조에만 쓰고
-배경은 무채색 + 은은한 오로라 그라디언트로 깔린다.
+**기본은 다크**, 라이트는 사용자가 헤더의 토글(`components/ThemeToggle.tsx`)로 고를 때만 켠다.
+`prefers-color-scheme` 분기는 두지 않는다 — 시연 화면이 발표자 노트북의 OS 설정에 따라
+제멋대로 바뀌면 안 된다. 선택은 `<html data-theme="light">` 와 `localStorage.theme` 이 들고,
+`app/layout.tsx` 의 인라인 스크립트가 첫 그림 전에 입혀 다크 한 번 깜빡임을 막는다.
+오렌지 포인트 색상(`--accent`)을 강조에만 쓰고 배경은 무채색 + 은은한 오로라 그라디언트로 깔린다.
+
+라이트는 다크 값을 그대로 뒤집지 않는다. `#ff8a3d` 는 흰 바탕에서 대비가 2:1 대까지 떨어져
+본문 색으로 못 쓰므로, 색조는 유지한 채 어둡게 내려 잡는다(`--accent: #b8530c`). 흰 알파에
+기대던 효과(오로라·격자·glass·shimmer)만 `:root[data-theme="light"]` 에서 다시 잡고,
+컴포넌트는 토큰 클래스만 쓰므로 손대지 않는다. 브라우저 기본 위젯은 테마별 `color-scheme` 이
+맞춘다 — `viewport` 에 `colorScheme` 을 박아 두면 라이트에서 위젯만 다크로 남는다.
 
 색·질감은 전부 `frontend/app/globals.css` 의 CSS 변수와 `@theme inline` 매핑에서 나온다.
 컴포넌트는 `bg-surface` / `border-line` / `text-accent` 같은 토큰 클래스만 쓰므로,

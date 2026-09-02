@@ -406,6 +406,18 @@
       "accessCount": 1,
       "lastAccessed": 1788310640509,
       "type": "file"
+    },
+    {
+      "path": "frontend/app/globals.css",
+      "accessCount": 1,
+      "lastAccessed": 1788321335975,
+      "type": "file"
+    },
+    {
+      "path": "frontend/app/layout.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1788321336170,
+      "type": "file"
     }
   ],
   "userDirectives": []

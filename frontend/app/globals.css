@@ -1,11 +1,14 @@
 @import "tailwindcss";
 
-/* AudienceDeck AI — 다크 프리미엄 테마.
+/* AudienceDeck AI — 다크 프리미엄 테마 + 라이트 한 벌.
  *
- * 시연 환경이 어떤 OS 설정이든 화면이 똑같이 나와야 해서 prefers-color-scheme 분기를
- * 두지 않는다. 다크 한 벌만 정교하게 맞춘다 (docs/07-frontend-ux.md).
+ * 기본은 다크다. 라이트는 `prefers-color-scheme` 이 아니라 사용자가 헤더에서 고를 때만
+ * (`<html data-theme="light">`) 켜진다 — 시연 화면이 발표자 노트북의 OS 설정에 따라
+ * 제멋대로 바뀌면 안 되기 때문이다 (docs/07-frontend-ux.md).
+ * 색은 전부 아래 토큰에서 나오므로 컴포넌트는 손대지 않는다.
  */
 :root {
+  color-scheme: dark;
   --background: #0a0c11;
   --surface: #141822;
   --surface-muted: #1b202c;
@@ -29,6 +32,66 @@
 
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.9);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 라이트: 다크 값을 그대로 뒤집지 않는다. 오렌지 포인트는 흰 바탕에서 대비가 2:1 대까지
+ * 떨어져 본문 색으로 못 쓰므로, 같은 색조를 유지한 채 어둡게 내려 잡는다. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #f5f6fa;
+  --surface: #ffffff;
+  --surface-muted: #eceef5;
+  --surface-glass: rgba(255, 255, 255, 0.72);
+  --foreground: #171b26;
+  --muted: #5b6377;
+  --border: rgba(18, 22, 36, 0.11);
+  --border-strong: rgba(18, 22, 36, 0.22);
+
+  --accent: #b8530c;
+  --accent-2: #d98724;
+  --accent-soft: rgba(184, 83, 12, 0.1);
+  --accent-ink: #fffaf4;
+
+  --ok: #17734a;
+  --ok-soft: rgba(23, 115, 74, 0.1);
+  --warn: #8a5a06;
+  --warn-soft: rgba(138, 90, 6, 0.12);
+  --danger: #b8352d;
+  --danger-soft: rgba(184, 53, 45, 0.1);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 14px 34px -22px rgba(18, 22, 48, 0.45);
+}
+
+/* 토큰만으로는 안 되는 자리 — 흰 알파를 그대로 쓰면 밝은 바탕에서 사라지는 효과들. */
+:root[data-theme="light"] body::before {
+  background:
+    radial-gradient(38% 38% at 18% 12%, rgba(255, 138, 61, 0.16), transparent 62%),
+    radial-gradient(34% 34% at 82% 8%, rgba(96, 126, 255, 0.12), transparent 62%),
+    radial-gradient(44% 44% at 62% 96%, rgba(255, 196, 107, 0.14), transparent 62%);
+}
+
+:root[data-theme="light"] body::after {
+  background-image:
+    linear-gradient(rgba(18, 22, 36, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 22, 36, 0.045) 1px, transparent 1px);
+}
+
+:root[data-theme="light"] .glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.66));
+}
+
+:root[data-theme="light"] .lift:hover {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 1) inset, 0 22px 42px -26px rgba(18, 22, 48, 0.5);
+}
+
+:root[data-theme="light"] .shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--surface-muted) 30%,
+    rgba(255, 255, 255, 0.95) 50%,
+    var(--surface-muted) 70%
+  );
+  background-size: 220% 100%;
 }
 
 @theme inline {
