@@ -774,7 +774,10 @@ function VerificationPanel({
  * 준 경우와 구분되지 않는다.
  */
 function ProfileSummary({ request }: { request: PresentationRequest }) {
-  const { profile, message } = request;
+  // 구버전 백엔드가 profile/message를 생략한 결과도 안전하게 표시한다.
+  const profile = request.profile ?? { expertise: 3, interests: [], prior_knowledge: "" };
+  const message = request.message ?? { must_convey: "", minimize: [], banned: [] };
+  const keywords = request.keywords ?? [];
   const chips: { label: string; value: string }[] = [];
 
   if (profile.expertise !== 3) {
@@ -795,8 +798,8 @@ function ProfileSummary({ request }: { request: PresentationRequest }) {
   if (message.must_convey) {
     chips.push({ label: "반드시 전달", value: message.must_convey });
   }
-  if (request.keywords.length > 0) {
-    chips.push({ label: "강조", value: request.keywords.join(" · ") });
+  if (keywords.length > 0) {
+    chips.push({ label: "강조", value: keywords.join(" · ") });
   }
   if (message.minimize.length > 0) {
     chips.push({ label: "최소화", value: message.minimize.join(" · ") });
