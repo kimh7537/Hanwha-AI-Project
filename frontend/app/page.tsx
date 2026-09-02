@@ -35,6 +35,13 @@ const DEFAULT_REQUEST: PresentationRequest = {
   slide_count: null,
 };
 
+/** generate 안의 각 단계가 시작될 무렵(ms). 문서 분석 → 청중 변환 → 슬라이드 설계 → 발표 지원.
+ *
+ * 한 번의 호출이라 실제 경계를 알 수 없어 예정표로 넘긴다. 뒤로 갈수록 간격을 넓혀,
+ * 응답이 늦어도 마지막 단계에서 기다리는 것처럼 보이게 한다.
+ */
+const GENERATE_STAGE_AT_MS = [0, 3000, 10000, 22000];
+
 /** 원본 장수를 기본값으로 쓸 수 있는 입력인지.
  *
  * PPTX 가 아니면 `page_count` 는 슬라이드가 아니라 쪽수라 "원본 그대로"의 뜻이 없고,
@@ -100,10 +107,15 @@ export default function Page() {
 
     // 진행 표시는 실제 호출 단계를 따른다.
     // generate 호출이 모듈 A~D(0~3단계), verify 호출이 검증(4단계)에 해당한다.
+    // generate 는 한 번의 호출이라 그 안의 단계 경계를 알 수 없으므로, 관측한 소요 시간을
+    // 근거로 한 예정표를 따라 넘긴다. 응답이 오기 전에는 마지막 단계를 끝내지 않는다.
     setProgressIndex(0);
+    const started = Date.now();
     const ticker = window.setInterval(() => {
-      setProgressIndex((index) => (index < 3 ? index + 1 : index));
-    }, 400);
+      const elapsed = Date.now() - started;
+      const reached = GENERATE_STAGE_AT_MS.filter((at) => elapsed >= at).length - 1;
+      setProgressIndex((index) => Math.max(index, Math.min(reached, 3)));
+    }, 500);
 
     try {
       const generated = await generatePresentation(document.document.document_id, payload);

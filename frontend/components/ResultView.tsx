@@ -19,6 +19,7 @@ import {
 } from "@/lib/labels";
 import { ApiError, fetchPresentationPptx, generatePresentation } from "@/lib/api";
 import { download, downloadBlob, toMarkdown } from "@/lib/export";
+import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
 import { EvidenceDialog, EvidenceRefs } from "./EvidenceRef";
 import { SourceCompare } from "./SourceCompare";
 import {
@@ -307,15 +308,7 @@ function ComparePanel({ result }: { result: GenerateResponse }) {
           ))}
         </div>
 
-        {working ? (
-          <div className="mt-5 space-y-2" aria-live="polite">
-            <p className="text-xs text-muted">
-              {other ? AUDIENCE_LABELS[other] : ""}용으로 다시 설계하는 중입니다…
-            </p>
-            <span aria-hidden className="shimmer block h-2 w-2/3 rounded-full" />
-            <span aria-hidden className="shimmer block h-2 w-1/2 rounded-full" />
-          </div>
-        ) : null}
+        {working ? <CompareProgress audience={other} /> : null}
 
         {error ? (
           <p role="alert" className="mt-4 text-xs text-danger">
@@ -349,7 +342,60 @@ function ComparePanel({ result }: { result: GenerateResponse }) {
           <CompareColumn result={compared} note="청중만 바꾼 자료" highlight />
         </div>
       ) : null}
+
+      {/* 만들어지는 동안에도 결과가 들어올 자리를 그려 둔다. 화면이 비어 있으면
+          버튼이 먹지 않은 것처럼 보인다. */}
+      {working ? (
+        <div aria-hidden className="grid gap-3 md:grid-cols-2">
+          <ComparePlaceholder />
+          <ComparePlaceholder />
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/** 비교 생성도 generate 를 한 번 더 부르는 일이라 생성 화면과 같은 방식으로 기다린다. */
+function CompareProgress({ audience }: { audience: Audience | null }) {
+  const elapsed = useElapsed(true);
+  const percent = creepPercent(elapsed);
+
+  return (
+    <div className="mt-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs text-muted" aria-live="polite">
+          {audience ? AUDIENCE_LABELS[audience] : ""}용으로 다시 설계하는 중입니다
+        </p>
+        <p className="text-xs tabular-nums text-muted">
+          <span className="font-semibold text-accent">{percent}%</span> ·{" "}
+          {formatElapsed(elapsed)} 경과
+        </p>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-[width] duration-700 ease-out"
+          style={{ width: `${Math.max(percent, 4)}%` }}
+        />
+      </div>
+      <p key={tipAt(elapsed)} className="animate-in mt-3 text-xs leading-relaxed text-muted">
+        <span aria-hidden className="mr-1.5 text-accent">
+          ●
+        </span>
+        {tipAt(elapsed)}
+      </p>
+    </div>
+  );
+}
+
+function ComparePlaceholder() {
+  return (
+    <Card className="space-y-3 p-5">
+      <span className="shimmer block h-3 w-1/3 rounded-full" />
+      <span className="shimmer block h-2.5 w-4/5 rounded-full" />
+      <span className="shimmer block h-2.5 w-2/3 rounded-full" />
+      <span className="shimmer block h-2.5 w-3/4 rounded-full" />
+      <span className="shimmer block h-2.5 w-1/2 rounded-full" />
+    </Card>
   );
 }
 
