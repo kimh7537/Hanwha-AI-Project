@@ -222,9 +222,17 @@ _PIXEL_PNG = base64.b64decode(
 )
 
 
+def _add_cover(presentation) -> None:
+    """원본 표지. export 는 이 슬라이드를 글까지 그대로 맨 앞에 남겨야 한다."""
+    cover = presentation.slides.add_slide(presentation.slide_layouts[0])
+    cover.shapes.title.text = "원본표지제목"
+    cover.placeholders[1].text_frame.text = "원본표지부제"
+
+
 def _template_with_picture_and_table() -> bytes:
-    """2장짜리 원본. 2장은 표·그림만 있고 본문 텍스트 상자가 없다 (빈 자리 탐색 경로)."""
+    """3장짜리 원본. 1장은 표지, 3장은 표·그림만 있고 본문 상자가 없다 (빈 자리 탐색 경로)."""
     presentation = Presentation()
+    _add_cover(presentation)
 
     first = presentation.slides.add_slide(presentation.slide_layouts[1])
     first.shapes.title.text = "원본 제목"
@@ -255,10 +263,13 @@ def _count_visuals(presentation: Presentation) -> tuple[int, int]:
 
 @pytest.fixture()
 def two_slide_result(result: GenerateResponse) -> GenerateResponse:
-    """생성 슬라이드 2장이 원본 1·2장에서 왔다고 두고 근거를 다시 건다."""
+    """생성 슬라이드 2장이 원본 2·3장에서 왔다고 두고 근거를 다시 건다.
+
+    1장은 표지라 후보가 아니다 — 근거가 1장을 가리켜도 본문이 표지를 덮지 않는다.
+    """
     result.source_analysis.source_evidence = [
-        SourceEvidence(id="chunk-01", text="", page=1),
-        SourceEvidence(id="chunk-02", text="", page=2),
+        SourceEvidence(id="chunk-01", text="", page=2),
+        SourceEvidence(id="chunk-02", text="", page=3),
     ]
     result.slide_deck.slides = result.slide_deck.slides[:2]
     for slide_data, ref in zip(result.slide_deck.slides, ["chunk-01", "chunk-02"]):
@@ -300,8 +311,51 @@ def test_title_only_slide_keeps_the_title_in_its_title_box(
     exported = _open(export_pptx.build_pptx(two_slide_result, template=template))
 
     slide_data = two_slide_result.slide_deck.slides[1]
-    table_slide = exported.slides[2]  # 표지 → 원본 1장 → 표 슬라이드
+    table_slide = exported.slides[2]  # 원본 표지 → 원본 2장 → 원본 3장(표 슬라이드)
     assert table_slide.shapes.title.text_frame.text == slide_data.title
+
+
+def test_export_never_grows_past_the_original(two_slide_result: GenerateResponse) -> None:
+    """원본 3장을 넣었으면 완성본도 3장이다.
+
+    예전에는 새 표지 1장과 예상 Q&A·검증 부록이 붙어 요청한 장수를 넘겼다. 10장을 넣고
+    10장을 요청한 사람이 14장을 받으면 그 파일은 발표에 그대로 쓸 수 없다.
+    """
+    template = _template_with_picture_and_table()
+    source = _open(template)
+    exported = _open(export_pptx.build_pptx(two_slide_result, template=template))
+
+    assert len(exported.slides) == len(source.slides) == 3
+    assert len(exported.slides) <= len(two_slide_result.slide_deck.slides) + 1
+
+    text = _all_text(exported)
+    assert "예상 질문과 답변" not in text
+    assert "원문 대비 검증" not in text
+
+
+def test_deck_longer_than_the_original_is_capped(two_slide_result: GenerateResponse) -> None:
+    """생성 슬라이드가 원본보다 많아도 새 슬라이드를 만들지 않는다."""
+    two_slide_result.slide_deck.slides = two_slide_result.slide_deck.slides * 3
+    template = _template_with_picture_and_table()
+
+    exported = _open(export_pptx.build_pptx(two_slide_result, template=template))
+    assert len(exported.slides) == 3  # 표지 + 원본 2장
+
+
+def test_cover_slide_is_kept_untouched(two_slide_result: GenerateResponse) -> None:
+    """표지는 맨 앞에 원본 글까지 그대로 남는다."""
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_with_picture_and_table())
+    )
+
+    cover = exported.slides[0]
+    text = "\n".join(
+        shape.text_frame.text for shape in cover.shapes if shape.has_text_frame
+    )
+    assert "원본표지제목" in text
+    assert "원본표지부제" in text
+    for slide_data in two_slide_result.slide_deck.slides:
+        assert slide_data.title not in text
 
 
 def test_template_keeps_its_own_slide_size(two_slide_result: GenerateResponse) -> None:
@@ -351,6 +405,7 @@ def _template_with_many_text_boxes() -> bytes:
     presentation = Presentation()
     presentation.slide_width = Inches(13.333)
     presentation.slide_height = Inches(7.5)
+    _add_cover(presentation)
     blank = presentation.slide_layouts[6]
 
     for number in (1, 2):
@@ -374,18 +429,22 @@ def _template_with_many_text_boxes() -> bytes:
     return buffer.getvalue()
 
 
-def test_no_original_sentence_survives_anywhere(two_slide_result: GenerateResponse) -> None:
-    """갈아 끼우지 않은 상자에 원문이 남으면 안 된다.
+def test_untouched_text_boxes_keep_their_original_text(
+    two_slide_result: GenerateResponse,
+) -> None:
+    """갈아 끼우지 않은 상자의 원본 글은 그대로 남아야 한다.
 
-    검증을 마친 결과 옆에 검증하지 않은 원문이 섞이는 일이라, 보기 나쁜 정도의 문제가 아니다.
+    한때는 이 상자들을 비웠다. 그러면 원본이 도표 위주일 때 축 이름·수치 라벨·범례가 통째로
+    사라져 발표에 못 쓰는 파일이 나온다. 바꾸는 것은 제목 자리와 본문 자리뿐이다.
     """
     exported = _open(
         export_pptx.build_pptx(two_slide_result, template=_template_with_many_text_boxes())
     )
     text = _all_text(exported)
 
-    for leftover in ("원본제목", "원본왼쪽본문", "원본오른쪽본문", "원본하단주석"):
-        assert leftover not in text, f"'{leftover}' 가 남았습니다"
+    # 제목 자리(맨 위)와 본문 자리(가장 큰 상자)는 갈아 끼우고, 나머지는 손대지 않는다.
+    for kept in ("원본오른쪽본문1", "원본하단주석1", "원본오른쪽본문2", "원본하단주석2"):
+        assert kept in text, f"'{kept}' 가 사라졌습니다"
 
 
 def test_title_lands_even_without_a_title_placeholder(

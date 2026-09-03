@@ -502,28 +502,6 @@ def _body_shape(slide, title):
     return max(candidates, key=lambda shape: shape.width * shape.height)
 
 
-def _clear_leftover_text(slide, written: set[int]) -> None:
-    """글을 갈아 끼우지 않은 텍스트 상자를 비운다.
-
-    원본 슬라이드에 텍스트 상자가 여럿이면(좌우 2단, 하단 주석 등) 예전에는 가장 큰 하나만
-    바뀌고 나머지에 **원본 문서의 문장이 그대로 남았다.** 검증을 마친 결과 옆에 검증하지 않은
-    원문이 섞이고, 새로 넣은 글과 겹쳐 보인다.
-
-    도형 자체는 지우지 않는다 — 지우면 그룹·정렬이 틀어지고 원본 형식을 지킨다는 이 경로의
-    목적이 무너진다. 빈 텍스트 상자는 화면에 아무것도 그리지 않는다.
-
-    그룹 안의 글은 건드리지 않는다 (`slide.shapes` 는 그룹을 하나로 본다). 그룹은 대개 도해나
-    로고라 그 안의 글자가 그림의 일부이고, 비우면 도형이 망가진다. 그런 원본에 원문 문장이
-    남을 수 있는데, 지금은 그림을 지키는 쪽을 택했다.
-    """
-    for shape in _text_shapes(slide):
-        if shape.shape_id in written:
-            continue
-        if not shape.text_frame.text.strip():
-            continue
-        shape.text_frame.clear()
-
-
 def _first_run_rPr(frame):
     """원본 첫 run 의 글꼴 서식. 글만 바꾸고 서식은 물려주기 위해 복사해 둔다."""
     for paragraph in frame.paragraphs:
@@ -624,17 +602,21 @@ def _free_band(slide, height: float) -> tuple[float, float] | None:
 def _rewrite_slide(
     slide, slide_data: Slide, notes: str, refs: str, w: float, h: float
 ) -> bool:
-    """원본 슬라이드의 글만 청중용 내용으로 바꾼다. 이미지·표·배경은 그대로 둔다.
+    """원본 슬라이드에서 **제목 자리와 본문 자리의 글만** 청중용 내용으로 바꾼다.
 
-    글을 놓을 자리를 못 찾으면 False 를 돌려주고, 호출부가 그 슬라이드를 새로 그린다.
+    갈아 끼우지 않은 텍스트 상자는 원본 글을 그대로 둔다. 차트의 축 이름·수치 라벨, 범례,
+    각주, 좌우 2단 중 한쪽 같은 것들이 여기 해당한다. 한때는 이것들을 비웠는데, 원본이
+    도표 위주면 슬라이드에서 숫자와 라벨이 통째로 사라져 발표에 쓸 수 없는 파일이 나왔다.
+    비우지 않으므로 검증을 거치지 않은 원문이 완성본에 남는다 — 이 경로가 지키는 것은
+    "원본 형식 보존"이고, 원문 대비 검증은 화면의 검증 탭이 계속 책임진다.
+
+    이미지·표·배경은 애초에 텍스트 프레임이 없어 손대지 않는다.
+    글을 놓을 자리를 못 찾으면 False 를 돌려준다.
     """
     title = _title_shape(slide)
-    # 글을 실제로 갈아 끼운 도형. 나머지에 남은 원본 문장은 아래에서 비운다.
-    written: set[int] = set()
 
     if title is not None and slide_data.title:
         _replace_lines(title.text_frame, [slide_data.title], shape=title, assumed=28)
-        written.add(title.shape_id)
 
     lines = ([slide_data.takeaway] if slide_data.takeaway else []) + list(slide_data.bullets)
     body = _body_shape(slide, title)
@@ -643,11 +625,6 @@ def _rewrite_slide(
         _replace_lines(
             body.text_frame, lines, bold_first=bool(slide_data.takeaway), shape=body
         )
-        written.add(body.shape_id)
-
-    # 갈아 끼우지 않은 상자에 남은 원본 문장을 비운다. 빈 구간을 찾기 전에 비워야 그 상자가
-    # 차지하던 자리도 빈 자리로 잡힌다.
-    _clear_leftover_text(slide, written)
 
     if lines and body is None:
         band = _free_band(slide, h)
@@ -689,13 +666,51 @@ def _rewrite_slide(
 def _source_slide_index(
     slide_data: Slide, pages: dict[str, int], count: int, used: set[int]
 ) -> int | None:
-    """생성 슬라이드가 어느 원본 슬라이드에서 왔는지. PPTX 는 페이지 번호 = 슬라이드 번호다."""
+    """생성 슬라이드가 어느 원본 슬라이드에서 왔는지. PPTX 는 페이지 번호 = 슬라이드 번호다.
+
+    0번(표지)은 후보에서 뺀다. 표지는 원본 그대로 맨 앞에 남기기로 했고, 여기서 내주면
+    발표의 얼굴에 본문이 얹힌다.
+    """
     counts = Counter(pages[ref] for ref in slide_data.source_refs if ref in pages)
     for page, _ in counts.most_common():
         index = page - 1
-        if 0 <= index < count and index not in used:
+        if 0 < index < count and index not in used:
             return index
     return None
+
+
+def _assign_sources(
+    deck: list[Slide], pages: dict[str, int], count: int
+) -> list[tuple[Slide, int]]:
+    """생성 슬라이드마다 얹을 원본 슬라이드를 정한다. 결과는 덱 순서 그대로다.
+
+    근거(`source_refs`)가 가장 많이 가리키는 원본을 먼저 쓰고, 못 찾은 슬라이드는 남은 원본을
+    앞에서부터 채운다. 순서대로 채우는 뒷받침이 없으면 근거가 여러 쪽에 걸친 슬라이드가 짝을
+    찾지 못해 통째로 빠지고, 완성본 장수가 사용자가 요청한 장수와 어긋난다.
+
+    덱 순서를 유지하는 것이 핵심이다 — 원본 순서로 다시 정렬하면 청중별로 다시 짠 이야기
+    순서가 원본 순서로 되돌아가, 이 제품이 하는 일이 파일에서 사라진다.
+    """
+    used: set[int] = set()
+    matched: dict[int, int] = {}  # 덱 위치 -> 원본 위치
+    pending: list[int] = []
+
+    for position, slide_data in enumerate(deck):
+        index = _source_slide_index(slide_data, pages, count, used)
+        if index is None:
+            pending.append(position)
+            continue
+        used.add(index)
+        matched[position] = index
+
+    free = iter(sorted(set(range(1, count)) - used))
+    for position in pending:
+        index = next(free, None)
+        if index is None:
+            break
+        matched[position] = index
+
+    return [(deck[position], matched[position]) for position in sorted(matched)]
 
 
 def _reorder(presentation, slide_ids, order: list) -> None:
@@ -710,38 +725,46 @@ def _reorder(presentation, slide_ids, order: list) -> None:
 
 
 def _build_on_template(result: GenerateResponse, template: bytes) -> bytes:
-    """원본 PPTX 를 열어 그 슬라이드 위에 결과를 얹는다."""
+    """원본 PPTX 를 열어 그 슬라이드 위에 결과를 얹는다.
+
+    완성본은 원본 슬라이드로만 이루어지고, 장수는 원본을 넘지 않는다. 새로 그린 표지도,
+    예상 Q&A·검증 부록도 붙이지 않는다 — 10장을 넣고 10장을 요청한 사람에게 14장을 주면
+    그 파일은 발표에 그대로 쓸 수 없다. Q&A 와 검증은 화면과 Markdown·JSON 다운로드에 있다.
+
+    표지(원본 1장)는 글까지 원본 그대로 맨 앞에 남는다.
+    """
     presentation = Presentation(io.BytesIO(template))
     w, h = _geom(presentation)
 
     originals = list(presentation.slides)
+    if not originals:
+        raise ValueError("원본 PPTX 에 슬라이드가 없습니다")
+
     slide_ids = presentation.slides._sldIdLst  # noqa: SLF001 - 순서 변경은 공개 API 가 없다
     original_ids = list(slide_ids)
     pages = {item.id: item.page for item in result.source_analysis.source_evidence}
 
-    used: set[int] = set()
-    order: list = []
-
-    _add_title_slide(presentation, result)
-    order.append(list(slide_ids)[-1])
+    # 표지는 손대지 않는다. 순서를 여기서부터 쌓으므로 항상 맨 앞이다.
+    order: list = [original_ids[0]]
 
     deck = result.slide_deck.slides
-    for index, slide_data in enumerate(deck, start=1):
+    capacity = len(originals) - 1  # 표지를 뺀 자리
+    if len(deck) > capacity:
+        _log.info(
+            "원본이 %d장이라 생성 슬라이드 %d장 중 %d장만 얹습니다",
+            len(originals),
+            len(deck),
+            capacity,
+        )
+
+    for slide_data, source in _assign_sources(deck[:capacity], pages, len(originals)):
         notes = _speaker_notes(result, slide_data)
         refs = _refs_label(result, slide_data.source_refs)
-        source = _source_slide_index(slide_data, pages, len(originals), used)
-        if source is not None:
-            used.add(source)
-            if _rewrite_slide(originals[source], slide_data, notes, refs, w, h):
-                order.append(original_ids[source])
-                continue
-        _add_content_slide(presentation, slide_data, index, len(deck), notes, refs)
-        order.append(list(slide_ids)[-1])
-
-    before = len(list(slide_ids))
-    _add_qa_slides(presentation, result)
-    _add_verification_slide(presentation, result)
-    order.extend(list(slide_ids)[before:])
+        if not _rewrite_slide(originals[source], slide_data, notes, refs, w, h):
+            # 글을 놓을 자리가 없는 원본이다. 새 슬라이드를 만들면 장수가 어긋나므로
+            # 원본을 그대로 둔다.
+            _log.info("원본 %d번 슬라이드에 글 놓을 자리가 없어 원본 그대로 둡니다", source + 1)
+        order.append(original_ids[source])
 
     _reorder(presentation, slide_ids, order)
 
