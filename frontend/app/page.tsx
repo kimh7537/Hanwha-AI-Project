@@ -22,17 +22,22 @@ export default function PortalPage() {
             <span className="clevers-mark" aria-hidden="true" />
             <span className="text-[20px] font-semibold tracking-[-0.04em]">Cleverse</span>
           </Link>
-          <div className="hidden h-6 w-px bg-white/20 lg:block" />
+          <div className="h-6 w-px bg-white/20" />
           <div className="hidden items-center gap-8 text-[13px] text-white/70 lg:flex">
             {NAV_ITEMS.map((item) => (
               <button key={item} type="button" className="transition hover:text-white">
                 {item}
               </button>
             ))}
-            <Link href="/audiencedeck" className="transition hover:text-white">
-              AudienceDeck AI
-            </Link>
           </div>
+          {/* 포털 흉내인 위 항목들과 달리 이것만 실제로 동작하므로 좁은 화면에서도 접지 않는다.
+              하단 "시작하기" 카드와 짝이고, 둘 다 `/audiencedeck` 으로 간다. */}
+          <Link
+            href="/audiencedeck"
+            className="shrink-0 text-[13px] text-white/70 transition hover:text-white lg:-ml-2"
+          >
+            AudienceDeck AI
+          </Link>
           <div className="ml-auto flex items-center gap-5 text-[13px] text-white/80">
             <button type="button" className="hidden transition hover:text-white sm:block">
               Ch.H+
