@@ -23,3 +23,4 @@ backend/storage/
 *.log
 # Vercel CLI 가 만드는 링크 정보(.vercel/project.json)와 로컬 토큰
 .vercel
+영상/

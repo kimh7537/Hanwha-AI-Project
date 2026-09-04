@@ -44,7 +44,8 @@ import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
 type Row =
   // number 는 발표용 덱에서 몇 번째 장인가 — 결과 슬라이드 이미지를 부르는 주소에 쓴다.
   | { kind: "rewritten"; page: number; original: string; slide: Slide; number: number }
-  | { kind: "kept"; page: number; original: string; number: number }
+  // 표지. 발표용 덱의 장이 아니라 원본 그대로 완성본 맨 앞에 남는 장이라 number 가 없다.
+  | { kind: "kept"; page: number; original: string }
   | { kind: "added"; slide: Slide; number: number }
   | { kind: "cut"; slide: Slide; number: number }
   | { kind: "dropped"; page: number; original: string };
@@ -106,7 +107,6 @@ export function SourceCompare({
           kind: "kept",
           page: map.cover_page,
           original: byPage.get(map.cover_page) ?? "",
-          number: 1,
         });
       }
       for (const pair of map.pairs) {
@@ -320,7 +320,9 @@ export function SourceCompare({
                   ? "발표자료에 없음"
                   : row.kind === "cut"
                     ? "파일에 자리가 없음"
-                    : `발표용 슬라이드 ${row.number}번째`
+                    : row.kind === "kept"
+                      ? "완성본 맨 앞 (원본 그대로)"
+                      : `발표용 슬라이드 ${row.number}번째`
               }
               kind={row.kind}
             >
@@ -339,7 +341,7 @@ export function SourceCompare({
                 imageMode ? (
                   <SlideImage
                     src={documentSlideUrl(result.document.document_id, row.page)}
-                    alt={`발표용 ${row.number}번째 슬라이드 (원본 표지 그대로)`}
+                    alt="완성본 맨 앞 슬라이드 (원본 표지 그대로)"
                     regions={[]}
                     fallback={<OriginalText text={row.original} />}
                   />
@@ -469,6 +471,13 @@ function SlideImage({
   fallback: React.ReactNode;
 }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
+  // 장을 넘기면 src 만 바뀌고 컴포넌트는 재사용된다. 그대로 두면 새 그림이 오는 동안
+  // 이전 장의 그림이 "ready" 상태로 남아, 왼쪽은 새 장인데 오른쪽은 이전 장인 순간이 생긴다.
+  const [shown, setShown] = useState(src);
+  if (shown !== src) {
+    setShown(src);
+    setState("loading");
+  }
 
   if (state === "failed") return <>{fallback}</>;
 
