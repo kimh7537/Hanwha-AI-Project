@@ -497,3 +497,141 @@ def test_body_text_fits_inside_its_shape(two_slide_result: GenerateResponse) -> 
             checked += 1
 
     assert checked > 0, "검사한 텍스트 상자가 없습니다"
+
+
+# --------------------------------------------------------------------------
+# 머리글·차트 라벨이 있는 원본 (실무 IR 자료 모양)
+# --------------------------------------------------------------------------
+
+
+def _template_like_an_ir_deck() -> bytes:
+    """머리글 한 줄, 그 아래 진짜 제목, 큰 숫자 라벨, 작은 차트 라벨.
+
+    실제 IR 자료의 모양이다. "맨 위 상자 = 제목", "가장 큰 상자 = 본문" 으로 고르던 시절에는
+    12pt 머리글이 발표 제목으로 바뀌고 25pt 원본 제목은 그대로 남아 한 장에 제목이 둘이 됐고,
+    본문은 '92,929억원' 같은 차트 라벨을 덮어 원본 숫자를 지웠다.
+    """
+    presentation = Presentation()
+    presentation.slide_width = Inches(13.333)
+    presentation.slide_height = Inches(7.5)
+    _add_cover(presentation)
+    blank = presentation.slide_layouts[6]
+
+    for number in (1, 2):
+        slide = presentation.slides.add_slide(blank)
+
+        def box(left, top, width, height, text, size):
+            shape = slide.shapes.add_textbox(
+                Inches(left), Inches(top), Inches(width), Inches(height)
+            )
+            shape.text_frame.text = text
+            shape.text_frame.paragraphs[0].runs[0].font.size = Pt(size)
+
+        # 맨 위 두 줄은 머리글이다 — 이동 경로와 문서 제목.
+        box(0.23, 0.08, 1.93, 0.23, f"머리글경로{number}", 12)
+        box(9.74, 0.07, 3.03, 0.23, f"머리글문서명{number}", 12)
+        # 진짜 제목은 그 아래에 더 큰 글자로 있다.
+        box(0.24, 0.72, 2.81, 0.44, f"원본진짜제목{number}", 25)
+        # 차트 가운데의 큰 숫자와 작은 축 라벨.
+        box(0.17, 1.61, 2.39, 1.48, f"92,929억원 영업이익 13,655 ({number})", 45)
+        box(9.32, 2.33, 0.43, 0.16, f"차트라벨{number}", 8)
+
+    buffer = io.BytesIO()
+    presentation.save(buffer)
+    return buffer.getvalue()
+
+
+def test_title_replaces_the_real_title_not_the_header_line(
+    two_slide_result: GenerateResponse,
+) -> None:
+    """제목은 맨 위 머리글이 아니라 위쪽 띠에서 글자가 가장 큰 상자로 간다.
+
+    머리글에 써 넣으면 원본 제목이 그대로 남아 한 장에 제목이 둘이 된다 — 사용자가 본
+    "변경 전 텍스트가 그대로 남아있다" 가 이것이다.
+    """
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_like_an_ir_deck())
+    )
+    text = _all_text(exported)
+
+    for number in (1, 2):
+        assert f"원본진짜제목{number}" not in text, "원본 제목이 갈아 끼워지지 않았습니다"
+        assert f"머리글경로{number}" in text, "머리글이 제목으로 덮였습니다"
+        assert f"머리글문서명{number}" in text, "머리글이 제목으로 덮였습니다"
+
+    for slide_data in two_slide_result.slide_deck.slides:
+        assert slide_data.title in text
+
+
+def test_chart_labels_are_never_used_as_the_body_box(
+    two_slide_result: GenerateResponse,
+) -> None:
+    """차트 라벨에는 본문을 넣지 않는다. 넣으면 원본 숫자가 통째로 사라진다."""
+    exported = _open(
+        export_pptx.build_pptx(two_slide_result, template=_template_like_an_ir_deck())
+    )
+    text = _all_text(exported)
+
+    for number in (1, 2):
+        assert f"92,929억원 영업이익 13,655 ({number})" in text, "차트 숫자가 사라졌습니다"
+        assert f"차트라벨{number}" in text, "차트 축 라벨이 사라졌습니다"
+
+
+# --------------------------------------------------------------------------
+# 짝짓기 알리기 — 화면의 "원본과 결과 비교" 가 이것만 믿는다
+# --------------------------------------------------------------------------
+
+
+def test_source_map_matches_where_the_slides_actually_land(
+    two_slide_result: GenerateResponse,
+) -> None:
+    """`source_map` 이 알려 준 자리에 실제로 그 슬라이드가 있어야 한다.
+
+    화면이 짝짓기를 다시 구현하던 시절에는 표지를 후보에서 빼는 규칙이 화면에 없어,
+    원본 2장에 얹힌 슬라이드를 원본 1장(표지) 옆에 놓았다.
+    """
+    template = _template_with_picture_and_table()
+    mapping = export_pptx.source_map(two_slide_result, template)
+    exported = _open(export_pptx.build_pptx(two_slide_result, template=template))
+
+    assert mapping["source_slides"] == len(_open(template).slides)
+    assert mapping["cover_page"] == 1
+
+    for pair in mapping["pairs"]:
+        slide_data = two_slide_result.slide_deck.slides[pair["number"] - 1]
+        # 표지는 후보가 아니다.
+        assert pair["page"] != mapping["cover_page"]
+        text = "\n".join(
+            shape.text_frame.text
+            for shape in exported.slides[pair["output"] - 1].shapes
+            if getattr(shape, "has_text_frame", False)
+        )
+        assert slide_data.title in text, (
+            f"발표용 {pair['number']}장이 파일 {pair['output']}장에 있다고 했지만 없습니다"
+        )
+
+
+def test_source_map_without_a_template_counts_the_generated_cover(
+    result: GenerateResponse,
+) -> None:
+    """원본이 PPTX 가 아니면 새로 그린 표지 뒤로 덱 순서 그대로다."""
+    mapping = export_pptx.source_map(result, None)
+
+    assert mapping["source_slides"] == 0
+    assert mapping["cover_page"] is None
+    assert [pair["output"] for pair in mapping["pairs"]] == [
+        number + 1 for number in range(1, len(result.slide_deck.slides) + 1)
+    ]
+    assert all(pair["page"] is None for pair in mapping["pairs"])
+
+
+def test_source_map_endpoint_answers_for_a_stored_presentation(
+    client: TestClient, sample_text: str
+) -> None:
+    presentation_id = _generate(client, sample_text)
+
+    response = client.get(f"/api/presentations/{presentation_id}/source-map")
+    assert response.status_code == 200, response.text
+    assert response.json()["pairs"]
+
+    assert client.get("/api/presentations/nope/source-map").status_code == 404

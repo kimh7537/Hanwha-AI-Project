@@ -5,8 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import {
   documentSlideUrl,
   fetchSlideDiff,
+  fetchSourceMap,
   presentationSlideUrl,
   type DiffRegion,
+  type SourceMap,
 } from "@/lib/api";
 import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
 
@@ -23,8 +25,16 @@ import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
  *
  * 렌더링이 안 되는 PC(PowerPoint 없음)나 PPTX 가 아닌 입력에서는 글자 비교로 되돌아간다.
  *
- * 짝짓기 규칙의 원본은 백엔드 `export_pptx._source_slide_index` 이며, 여기 사본은 화면 표시
- * 전용이다 — 즉 실제로 내려받는 PPTX 가 어떻게 얹히는지를 보여준다.
+ * **짝짓기는 백엔드에 물어본다** (`GET /api/presentations/{id}/source-map`). 예전에는 화면이
+ * 같은 규칙을 옮겨 적었는데, 규칙이 한쪽만 자라면서 실제 파일과 다른 짝을 보여주게 됐다 —
+ * 원본 2장에 얹힌 슬라이드를 원본 1장(표지) 옆에 놓는 식이다. 표지를 후보에서 빼는 것도,
+ * 짝을 못 찾은 슬라이드를 남은 원본에 채우는 것도 export 만 알고 있던 규칙이었다.
+ *
+ * **순서는 원본 순서다.** 왼쪽이 원본이므로 "원본 1장부터 차례로 무엇이 됐나"로 읽는 것이
+ * 자연스럽고, 청중별로 다시 짠 순서는 각 장의 "발표용 N번째" 표시에서 드러난다.
+ *
+ * 업로드가 PPTX 가 아니면(PDF·TXT) 얹을 원본이 없어 백엔드에도 짝이 없다. 그때만 화면이
+ * 근거(`source_refs`)로 짝을 지어 글끼리 견준다 — 파일과 어긋날 대상 자체가 없다.
  *
  * 글자 비교의 원본 글은 chunk 가 아니라 `DocumentResponse.pages` 에서 온다. chunk 는 쪽 경계를
  * 넘어 묶이고 page 필드는 chunk 가 "시작한" 쪽이라, chunk 로 그리면 없는 장이 생기고 남의 글이 섞인다.
@@ -34,12 +44,16 @@ import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
 type Row =
   // number 는 발표용 덱에서 몇 번째 장인가 — 결과 슬라이드 이미지를 부르는 주소에 쓴다.
   | { kind: "rewritten"; page: number; original: string; slide: Slide; number: number }
+  | { kind: "kept"; page: number; original: string; number: number }
   | { kind: "added"; slide: Slide; number: number }
+  | { kind: "cut"; slide: Slide; number: number }
   | { kind: "dropped"; page: number; original: string };
 
 const KIND_LABELS: Record<Row["kind"], string> = {
   rewritten: "다시 씀",
+  kept: "그대로",
   added: "새로 구성",
+  cut: "파일에서 빠짐",
   dropped: "제외됨",
 };
 
@@ -61,40 +75,93 @@ export function SourceCompare({
   const [active, setActive] = useState(0);
   const imageMode = isPptx && !showText;
 
+  // 실제로 어느 원본에 얹혔는지. 규칙을 화면에 옮겨 적지 않고 백엔드가 정한 배치를 받는다.
+  const [map, setMap] = useState<SourceMap | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchSourceMap(result.presentation_id).then((found) => {
+      if (!cancelled) setMap(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [result.presentation_id]);
+
   const rows = useMemo(() => {
     // 왼쪽에 그릴 원본 글. 파싱한 쪽 그대로라 "원본 슬라이드 N" 이 실제 N 장과 같다.
     const byPage = new Map<number, string>();
     for (const page of pages) byPage.set(page.page, page.text);
 
-    // chunk id -> 그 chunk 가 시작한 쪽. 짝짓기에만 쓴다 (백엔드 export 와 같은 기준).
-    const pageOf = new Map<string, number>();
-    for (const item of result.source_analysis.source_evidence) pageOf.set(item.id, item.page);
-
+    const deck = result.slide_deck.slides;
     const used = new Set<number>();
-    const paired: Row[] = result.slide_deck.slides.map((slide, index) => {
-      const counts = new Map<number, number>();
-      for (const ref of slide.source_refs) {
-        const page = pageOf.get(ref);
-        if (page !== undefined) counts.set(page, (counts.get(page) ?? 0) + 1);
-      }
-      // 근거를 가장 많이 끌어온 원본 슬라이드에 붙인다. 이미 쓴 원본은 건너뛴다.
-      const page = [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .find(([candidate]) => !used.has(candidate) && byPage.has(candidate))?.[0];
+    const paired: Extract<Row, { page: number }>[] = [];
+    // 원본에 짝이 없는 장은 뒤에 모은다 — 앞쪽은 원본 순서로 읽혀야 한다.
+    const tail: Row[] = [];
 
-      const number = index + 1;
-      if (page === undefined) return { kind: "added", slide, number };
-      used.add(page);
-      return { kind: "rewritten", page, original: byPage.get(page) ?? "", slide, number };
-    });
+    if (map && map.source_slides > 0) {
+      if (map.cover_page !== null) {
+        // 표지는 글까지 원본 그대로 파일 맨 앞에 남는다 (export_pptx._build_on_template).
+        used.add(map.cover_page);
+        paired.push({
+          kind: "kept",
+          page: map.cover_page,
+          original: byPage.get(map.cover_page) ?? "",
+          number: 1,
+        });
+      }
+      for (const pair of map.pairs) {
+        const slide = deck[pair.number - 1];
+        if (!slide) continue;
+        if (pair.page !== null) {
+          used.add(pair.page);
+          paired.push({
+            kind: "rewritten",
+            page: pair.page,
+            original: byPage.get(pair.page) ?? "",
+            slide,
+            number: pair.number,
+          });
+        } else {
+          // output 이 없으면 원본 장수가 모자라 파일에서 빠진 장이다.
+          tail.push({ kind: pair.output === null ? "cut" : "added", slide, number: pair.number });
+        }
+      }
+    } else {
+      // PPTX 가 아니거나 짝짓기를 받지 못했다. 글 대 글로만 견주므로 근거로 짝을 짓는다.
+      const pageOf = new Map<string, number>();
+      for (const item of result.source_analysis.source_evidence) pageOf.set(item.id, item.page);
+
+      deck.forEach((slide, index) => {
+        const counts = new Map<number, number>();
+        for (const ref of slide.source_refs) {
+          const page = pageOf.get(ref);
+          if (page !== undefined) counts.set(page, (counts.get(page) ?? 0) + 1);
+        }
+        const page = [...counts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .find(([candidate]) => !used.has(candidate) && byPage.has(candidate))?.[0];
+
+        const number = index + 1;
+        if (page === undefined) {
+          tail.push({ kind: "added", slide, number });
+          return;
+        }
+        used.add(page);
+        paired.push({ kind: "rewritten", page, original: byPage.get(page) ?? "", slide, number });
+      });
+    }
 
     // 짝이 없는 원본도 빠짐없이 보여준다. 실제 PPTX 에서 빠지는 장이 여기서 드러난다.
-    const dropped: Row[] = pages
-      .filter((page) => !used.has(page.page))
-      .map((page) => ({ kind: "dropped", page: page.page, original: page.text }));
+    for (const page of pages) {
+      if (!used.has(page.page)) {
+        paired.push({ kind: "dropped", page: page.page, original: page.text });
+      }
+    }
 
-    return [...paired, ...dropped];
-  }, [result, pages]);
+    // 원본 순서로 읽는다. 청중별로 다시 짠 순서는 각 장의 "발표용 N번째" 표시가 알려 준다.
+    paired.sort((a, b) => a.page - b.page);
+    return [...paired, ...tail];
+  }, [result, pages, map]);
 
   const row = rows[Math.min(active, rows.length - 1)];
 
@@ -146,9 +213,13 @@ export function SourceCompare({
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden gap-1.5 text-[11px] text-muted lg:flex">
-              <Chip>다시 씀 {tally("rewritten")}</Chip>
-              <Chip>새로 구성 {tally("added")}</Chip>
-              <Chip>제외됨 {tally("dropped")}</Chip>
+              {(Object.keys(KIND_LABELS) as Row["kind"][])
+                .filter((kind) => tally(kind) > 0)
+                .map((kind) => (
+                  <Chip key={kind}>
+                    {KIND_LABELS[kind]} {tally(kind)}
+                  </Chip>
+                ))}
             </span>
             {imageMode ? (
               <button
@@ -206,11 +277,16 @@ export function SourceCompare({
                   : "border-line text-muted hover:border-accent/30"
               }`}
             >
+              {/* 원본 순서로 늘어놓았으므로 앞의 번호는 원본 장 번호다. */}
               <span className="font-mono tabular-nums opacity-70">
-                {String(index + 1).padStart(2, "0")}
+                {"page" in item ? String(item.page).padStart(2, "0") : "--"}
               </span>
               <span className="max-w-[10rem] truncate font-semibold">{rowTitle(item)}</span>
               <span className="opacity-70">{KIND_LABELS[item.kind]}</span>
+              {/* 청중에 맞춰 이야기 순서가 바뀐 것이 여기서 드러난다. */}
+              {"number" in item ? (
+                <span className="font-mono tabular-nums opacity-50">발표용 {item.number}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -220,17 +296,17 @@ export function SourceCompare({
         <div className="mx-auto flex max-w-[1600px] flex-col gap-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <Side
-              label={row.kind === "added" ? "원본에 짝이 없음" : unitLabel(row.page)}
+              label={"page" in row ? unitLabel(row.page) : "원본에 짝이 없음"}
               kind={row.kind}
               muted
             >
-              {row.kind === "added" ? (
+              {!("page" in row) ? (
                 <Placeholder>원문 전체에서 근거를 모아 새로 만든 슬라이드입니다.</Placeholder>
               ) : imageMode ? (
                 <SlideImage
                   src={documentSlideUrl(result.document.document_id, row.page)}
                   alt={`원본 ${row.page}번째 슬라이드`}
-                  regions={marks}
+                  regions={row.kind === "rewritten" ? marks : []}
                   fallback={<OriginalText text={row.original} />}
                 />
               ) : (
@@ -239,7 +315,13 @@ export function SourceCompare({
             </Side>
 
             <Side
-              label={row.kind === "dropped" ? "발표자료에 없음" : "발표용 슬라이드"}
+              label={
+                row.kind === "dropped"
+                  ? "발표자료에 없음"
+                  : row.kind === "cut"
+                    ? "파일에 자리가 없음"
+                    : `발표용 슬라이드 ${row.number}번째`
+              }
               kind={row.kind}
             >
               {row.kind === "dropped" ? (
@@ -247,6 +329,23 @@ export function SourceCompare({
                   이 원본은 발표 시간과 청중에 맞추는 과정에서 빠졌습니다. 내려받는 PPTX 에도
                   들어가지 않습니다.
                 </Placeholder>
+              ) : row.kind === "cut" ? (
+                <Placeholder>
+                  원본 슬라이드 장수가 모자라 내려받는 PPTX 에는 들어가지 않습니다. 이 장의 내용은
+                  발표자료 탭과 Markdown·JSON 다운로드에 있습니다.
+                </Placeholder>
+              ) : row.kind === "kept" ? (
+                // 표지는 글까지 원본 그대로 파일 맨 앞에 남는다 — 원본 그림을 그대로 보여준다.
+                imageMode ? (
+                  <SlideImage
+                    src={documentSlideUrl(result.document.document_id, row.page)}
+                    alt={`발표용 ${row.number}번째 슬라이드 (원본 표지 그대로)`}
+                    regions={[]}
+                    fallback={<OriginalText text={row.original} />}
+                  />
+                ) : (
+                  <OriginalText text={row.original} />
+                )
               ) : imageMode ? (
                 <SlideImage
                   src={presentationSlideUrl(result.presentation_id, row.number)}
@@ -290,7 +389,9 @@ export function SourceCompare({
 }
 
 function rowTitle(row: Row): string {
-  return row.kind === "dropped" ? `원본 ${row.page}장` : row.slide.title || "제목 없음";
+  if (row.kind === "dropped") return `원본 ${row.page}장`;
+  if (row.kind === "kept") return "표지";
+  return row.slide.title || "제목 없음";
 }
 
 /**
@@ -481,11 +582,13 @@ function Side({
         {/* 상태는 색만이 아니라 글자로도 읽혀야 한다. */}
         <span
           className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${
-            kind === "dropped"
+            kind === "dropped" || kind === "cut"
               ? "border-warn/40 bg-warn-soft text-warn"
               : kind === "added"
                 ? "border-ok/40 bg-ok-soft text-ok"
-                : "border-accent/40 bg-accent-soft text-accent"
+                : kind === "kept"
+                  ? "border-line bg-surface-muted text-muted"
+                  : "border-accent/40 bg-accent-soft text-accent"
           }`}
         >
           {KIND_LABELS[kind]}

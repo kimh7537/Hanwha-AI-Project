@@ -97,25 +97,56 @@ def get_presentation(presentation_id: str) -> GenerateResponse:
     return stored
 
 
-@router.get("/{presentation_id}/slides/{number}")
-def presentation_slide(presentation_id: str, number: int) -> Response:
-    """생성된 발표자료의 슬라이드 한 장을 PNG 로 내려준다 (원본과 결과 대조 화면용).
+def _output_page(stored: GenerateResponse, template: bytes | None, number: int) -> int:
+    """발표용 덱 `number` 장이 결과 파일에서 몇 번째 장인가 (1-based).
 
-    내려받는 PPTX 를 그대로 굽는다. 화면에 보이는 장이 곧 파일에 들어 있는 장이어야 한다.
-    `number` 는 화면의 발표용 덱 기준 1-based 이며, 파일 1번은 표지라 여기서 한 장 밀어준다.
+    "덱 N 장 = 파일 N+1 장" 이 아니다. 원본 위에 얹는 경로에서는 원본 장수가 모자라면
+    뒤쪽 덱 슬라이드가 파일에서 빠지고, 그 뒤 번호가 통째로 밀린다.
+    """
+    pairs = export_pptx.source_map(stored, template)["pairs"]
+    output = next((pair["output"] for pair in pairs if pair["number"] == number), None)
+    if output is None:
+        raise HTTPException(status_code=404, detail="해당 슬라이드가 없습니다.")
+    return output
+
+
+@router.get("/{presentation_id}/source-map")
+def presentation_source_map(presentation_id: str) -> dict:
+    """발표용 덱의 각 장이 어느 원본 슬라이드에 얹혔는지 (원본과 결과 대조 화면용).
+
+    짝짓기 규칙의 원본은 `export_pptx` 하나뿐이다. 화면이 규칙을 다시 구현하면 export 가
+    바뀌는 순간 화면이 실제 파일과 다른 짝을 보여준다.
     """
     stored = store.get_presentation(presentation_id)
     if stored is None:
         raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
 
     document = store.get_document(stored.document.document_id)
+    return export_pptx.source_map(stored, document.source if document else None)
+
+
+@router.get("/{presentation_id}/slides/{number}")
+def presentation_slide(presentation_id: str, number: int) -> Response:
+    """생성된 발표자료의 슬라이드 한 장을 PNG 로 내려준다 (원본과 결과 대조 화면용).
+
+    내려받는 PPTX 를 그대로 굽는다. 화면에 보이는 장이 곧 파일에 들어 있는 장이어야 한다.
+    `number` 는 화면의 발표용 덱 기준 1-based 이고, 파일에서 몇 번째인지는 배치가 정한다.
+    """
+    stored = store.get_presentation(presentation_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="발표 결과를 찾을 수 없습니다.")
+
+    document = store.get_document(stored.document.document_id)
+    template = document.source if document else None
 
     try:
-        content = export_pptx.build_pptx(stored, template=document.source if document else None)
+        content = export_pptx.build_pptx(stored, template=template)
     except export_pptx.PptxUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    return slide_png_response(f"pres:{presentation_id}", content, number + 1)
+    return slide_png_response(
+        f"pres:{presentation_id}", content, _output_page(stored, template, number)
+    )
 
 
 @router.get("/{presentation_id}/slides/{number}/diff")
@@ -146,13 +177,13 @@ def presentation_slide_diff(presentation_id: str, number: int, page: int) -> dic
     originals = render_or_503(f"doc:{document.meta.document_id}", document.source)
     results = render_or_503(f"pres:{presentation_id}", content)
 
-    # 결과 파일의 1번은 표지라 발표용 N 장은 파일의 N+1 장이다 (presentation_slide 와 같다).
-    if not 1 <= page <= len(originals) or not 1 <= number + 1 <= len(results):
+    output = _output_page(stored, document.source, number)
+    if not 1 <= page <= len(originals) or not 1 <= output <= len(results):
         raise HTTPException(status_code=404, detail="해당 슬라이드가 없습니다.")
 
     return {
         "regions": slide_diff.regions(
-            originals[page - 1], results[number], document.source, page
+            originals[page - 1], results[output - 1], document.source, page
         )
     }
 

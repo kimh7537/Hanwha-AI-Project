@@ -62,6 +62,22 @@ _MARGIN = 0.7
 
 _DISCLAIMER = "이 자료는 업로드한 원문을 근거로 생성되었습니다. 발표 전 담당자 검토가 필요합니다."
 
+# 원본 위에 얹을 때 제목·본문 자리를 고르는 기준 ---------------------------
+# 제목은 슬라이드 위쪽 띠 안에서만 찾는다. IR 자료는 제목 바로 아래에 45pt 짜리 실적 숫자가
+# 있어("92,929억원"), 띠가 넓으면 그 숫자가 제목으로 뽑혀 원본에서 통째로 사라진다.
+_TITLE_BAND = 0.20
+# 제목은 한두 줄이다. 이보다 높은 상자는 제목과 본문이 한 상자에 같이 있는 자료라
+# 제목으로 쓰면 본문이 통째로 지워진다 — 그럴 땐 본문 자리로 넘긴다.
+_TITLE_MAX_H = 0.25
+# 본문은 슬라이드 폭의 30%·높이의 10% 는 되어야 후보다. 이보다 작은 상자는 차트 축 이름·
+# 수치 라벨·범례라서, 거기에 본문을 넣으면 원본 숫자가 사라지고 글은 상자를 넘친다.
+_BODY_MIN_W = 0.30
+_BODY_MIN_H = 0.10
+# 상자 안에 글이 들어가는지 재 볼 때의 가장 작은 글자 크기(`_fit_size` 의 바닥과 같다).
+_BODY_FLOOR_PT = 9
+# 이만큼 짧은 글은 문장이 아니라 라벨로 본다.
+_PROSE_CHARS = 12
+
 
 # --------------------------------------------------------------------------
 # 저수준 도우미
@@ -465,13 +481,47 @@ def _text_shapes(slide) -> list:
     return shapes
 
 
+def _slide_size(slide) -> tuple[int, int]:
+    """이 슬라이드가 속한 프레젠테이션의 폭·높이(EMU). 못 읽으면 16:9 기본값."""
+    try:
+        presentation = slide.part.package.presentation_part.presentation
+        return (
+            presentation.slide_width or int(_SLIDE_W * _EMU_PER_INCH),
+            presentation.slide_height or int(_SLIDE_H * _EMU_PER_INCH),
+        )
+    except AttributeError:  # pragma: no cover - python-pptx 내부 구조가 바뀐 경우
+        return int(_SLIDE_W * _EMU_PER_INCH), int(_SLIDE_H * _EMU_PER_INCH)
+
+
+def _area(shape) -> int:
+    return (shape.width or 0) * (shape.height or 0)
+
+
+def _max_font_pt(shape) -> float:
+    """이 도형에서 가장 큰 글자 크기(pt). 레이아웃에서 물려받는 값은 알 수 없어 0 이다."""
+    sizes = [
+        size.pt
+        for paragraph in shape.text_frame.paragraphs
+        for size in [paragraph.font.size, *(run.font.size for run in paragraph.runs)]
+        if size is not None
+    ]
+    return max(sizes) if sizes else 0.0
+
+
 def _title_shape(slide):
     """제목을 넣을 도형.
 
     `shapes.title` 이 없는 원본이 흔하다 (빈 레이아웃 위에 텍스트 상자로 직접 만든 자료).
-    그때 None 을 돌려주면 생성된 제목이 어디에도 들어가지 않고 원본 제목이 그대로 남으므로,
-    맨 위 텍스트 상자를 제목 자리로 본다. 본문이 갈 곳은 남겨 둬야 하니 상자가 하나뿐이거나
-    맨 위 상자가 곧 가장 큰 상자면 제목으로 쓰지 않는다.
+    그때 None 을 돌려주면 생성된 제목이 어디에도 들어가지 않고 원본 제목이 그대로 남는다.
+
+    **맨 위 상자가 아니라 위쪽 띠에서 글자가 가장 큰 상자를 고른다.** 실무 자료의 맨 위
+    한 줄은 거의 항상 머리글이다 — "Financials > 2Q26 손익현황" 같은 이동 경로, 오른쪽
+    구석의 문서 제목, 쪽번호. 거기에 생성 제목을 써 넣으면 12pt 머리글이 발표 제목으로
+    바뀌고 정작 25pt 로 적힌 원본 제목은 그대로 남아, 한 슬라이드에 제목이 둘이 된다.
+    글자 크기가 제목과 머리글을 가르는 가장 곧은 신호다.
+
+    본문이 갈 곳은 남겨 둬야 하니 상자가 하나뿐이거나 고른 상자가 제목 한 줄이라기엔
+    너무 높으면(= 제목과 본문이 한 상자에 같이 있는 자료) 쓰지 않는다.
     """
     try:
         title = slide.shapes.title
@@ -480,26 +530,76 @@ def _title_shape(slide):
     if title is not None:
         return title
 
-    shapes = _text_shapes(slide)
+    shapes = [shape for shape in _text_shapes(slide) if shape.text_frame.text.strip()]
     if len(shapes) < 2:
         return None
-    topmost = min(shapes, key=lambda shape: (shape.top or 0))
-    largest = max(shapes, key=lambda shape: (shape.width or 0) * (shape.height or 0))
-    return None if topmost.shape_id == largest.shape_id else topmost
+
+    _, height = _slide_size(slide)
+    band = height * _TITLE_BAND
+    candidates = [shape for shape in shapes if (shape.top or 0) < band]
+    if not candidates:
+        return None
+
+    # 글자 크기 → 면적 → 위에서 아래로 → 왼쪽에서 오른쪽으로.
+    best = max(
+        candidates,
+        key=lambda shape: (_max_font_pt(shape), _area(shape), -(shape.top or 0), -(shape.left or 0)),
+    )
+    return None if (best.height or 0) > height * _TITLE_MAX_H else best
+
+
+def _is_body_candidate(shape, width: int, height: int) -> bool:
+    """본문 글을 갈아 끼워도 되는 상자인가.
+
+    원본 IR 자료 한 장에는 텍스트 상자가 40~90개 있고 그 대부분은 차트의 축 이름·수치
+    라벨·범례·각주다. 예전처럼 "가장 넓은 상자"를 고르면 눈에 안 보이는 빈 장식 상자나
+    '92,929억원' 같은 차트 라벨이 뽑혀, 원본 숫자가 생성 문장으로 덮이고 정작 본문은
+    글 없는 자리에 처박힌다. 그래서 두 가지만 통과시킨다.
+
+    - 원본이 본문 자리로 설계해 둔 placeholder (비어 있어도 된다)
+    - 문장이 들어 있으면서 슬라이드에 견줘 충분히 큰 상자
+    """
+    if shape.is_placeholder and shape.placeholder_format.type in {
+        PP_PLACEHOLDER.BODY,
+        PP_PLACEHOLDER.OBJECT,
+        PP_PLACEHOLDER.SUBTITLE,
+    }:
+        return True
+
+    if len(shape.text_frame.text.strip()) < _PROSE_CHARS:
+        return False
+    return (shape.width or 0) >= width * _BODY_MIN_W and (shape.height or 0) >= height * _BODY_MIN_H
 
 
 def _body_shape(slide, title):
-    """본문 글을 갈아 끼울 도형. 제목을 뺀 텍스트 도형 중 가장 넓은 것.
+    """본문 글을 갈아 끼울 도형. 없으면 None (호출부가 빈 자리에 새 글상자를 만든다).
 
     제목은 `shape_id` 로 거른다 — `shapes.title` 은 호출할 때마다 새 proxy 를 만들어
     `is` 비교가 항상 참이 되고, 그러면 제목 상자에 본문이 들어간다.
     """
     title_id = title.shape_id if title is not None else None
-    # ponytail: 면적 최댓값 휴리스틱. 원본에 더 큰 장식용 텍스트 상자가 있으면 그쪽을 고른다.
-    candidates = [shape for shape in _text_shapes(slide) if shape.shape_id != title_id]
+    width, height = _slide_size(slide)
+    candidates = [
+        shape
+        for shape in _text_shapes(slide)
+        if shape.shape_id != title_id and _is_body_candidate(shape, width, height)
+    ]
     if not candidates:
         return None
-    return max(candidates, key=lambda shape: shape.width * shape.height)
+    return max(candidates, key=_area)
+
+
+def _body_fits(shape, lines: list[str]) -> bool:
+    """이 상자에 글이 바닥 크기로라도 들어가는가.
+
+    안 들어가는 상자에 밀어 넣으면 글이 상자 밖으로 흘러 원본 도표를 덮는다. 문장을 자르지
+    않는 것이 원칙이므로(docs/04-slide-planner.md) 그럴 바엔 다른 자리를 찾는 편이 낫다.
+    """
+    width = (shape.width or 0) / _EMU_PER_INCH - 0.2
+    height = (shape.height or 0) / _EMU_PER_INCH - 0.1
+    if width <= 0.5 or height <= 0.2:
+        return False
+    return _text_height(lines, _BODY_FLOOR_PT, width, space_after=4) <= height
 
 
 def _first_run_rPr(frame):
@@ -611,43 +711,56 @@ def _rewrite_slide(
     "원본 형식 보존"이고, 원문 대비 검증은 화면의 검증 탭이 계속 책임진다.
 
     이미지·표·배경은 애초에 텍스트 프레임이 없어 손대지 않는다.
-    글을 놓을 자리를 못 찾으면 False 를 돌려준다.
+    제목도 본문도 놓을 자리를 못 찾으면 False 를 돌려준다 (원본이 그대로 남는다).
     """
     title = _title_shape(slide)
+    changed = False
 
     if title is not None and slide_data.title:
         _replace_lines(title.text_frame, [slide_data.title], shape=title, assumed=28)
+        changed = True
 
     lines = ([slide_data.takeaway] if slide_data.takeaway else []) + list(slide_data.bullets)
     body = _body_shape(slide, title)
+    if body is not None and lines and not _body_fits(body, lines):
+        # 들어가지 않는 상자다. 밀어 넣으면 원본 라벨을 지우고 글은 밖으로 흐른다.
+        body = None
 
     if lines and body is not None:
         _replace_lines(
             body.text_frame, lines, bold_first=bool(slide_data.takeaway), shape=body
         )
+        changed = True
 
     if lines and body is None:
         band = _free_band(slide, h)
-        if band is None:
-            return False
-        top, band_height = band
         band_w = w - _MARGIN * 2
-        band_h = band_height - 0.2
-        bullets = [f"·  {line}" for line in lines]
         # 빈 구간에 안 들어가면 얹지 않는다. 넘친 글은 원본 그림·표와 아래 근거 줄을 덮는다.
-        size = _fit_body_size(bullets, band_w, band_h, space_after=8)
+        bullets = [f"·  {line}" for line in lines]
+        size = (
+            _fit_body_size(bullets, band_w, band[1] - 0.2, space_after=8)
+            if band is not None
+            else None
+        )
         if size is None:
-            return False
-        frame = _textbox(slide, _MARGIN, top + 0.1, band_w, band_h)
-        for order, bullet in enumerate(bullets):
-            _line(
-                frame,
-                bullet,
-                size,
-                first=order == 0,
-                bold=order == 0 and bool(slide_data.takeaway),
-                space_after=8,
-            )
+            # 도표로 꽉 찬 원본이다. 제목만 바꾸고 본문은 얹지 않는다 — 억지로 넣으면
+            # 원본 도표 위에 글이 겹쳐 발표에 못 쓰는 장이 된다.
+            _log.info("본문을 놓을 자리가 없어 제목만 바꿉니다: %s", slide_data.title)
+        else:
+            frame = _textbox(slide, _MARGIN, band[0] + 0.1, band_w, band[1] - 0.2)
+            for order, bullet in enumerate(bullets):
+                _line(
+                    frame,
+                    bullet,
+                    size,
+                    first=order == 0,
+                    bold=order == 0 and bool(slide_data.takeaway),
+                    space_after=8,
+                )
+            changed = True
+
+    if not changed:
+        return False
 
     footer = _textbox(slide, _MARGIN, h - 0.42, w - _MARGIN * 2, 0.3)
     _line(
@@ -681,8 +794,10 @@ def _source_slide_index(
 
 def _assign_sources(
     deck: list[Slide], pages: dict[str, int], count: int
-) -> list[tuple[Slide, int]]:
-    """생성 슬라이드마다 얹을 원본 슬라이드를 정한다. 결과는 덱 순서 그대로다.
+) -> list[tuple[int, int]]:
+    """생성 슬라이드마다 얹을 원본 슬라이드를 정한다. `(덱 위치, 원본 위치)` 쌍이며 둘 다 0-based.
+
+    결과는 덱 순서 그대로다.
 
     근거(`source_refs`)가 가장 많이 가리키는 원본을 먼저 쓰고, 못 찾은 슬라이드는 남은 원본을
     앞에서부터 채운다. 순서대로 채우는 뒷받침이 없으면 근거가 여러 쪽에 걸친 슬라이드가 짝을
@@ -710,7 +825,7 @@ def _assign_sources(
             break
         matched[position] = index
 
-    return [(deck[position], matched[position]) for position in sorted(matched)]
+    return [(position, matched[position]) for position in sorted(matched)]
 
 
 def _reorder(presentation, slide_ids, order: list) -> None:
@@ -757,7 +872,8 @@ def _build_on_template(result: GenerateResponse, template: bytes) -> bytes:
             capacity,
         )
 
-    for slide_data, source in _assign_sources(deck[:capacity], pages, len(originals)):
+    for position, source in _assign_sources(deck[:capacity], pages, len(originals)):
+        slide_data = deck[position]
         notes = _speaker_notes(result, slide_data)
         refs = _refs_label(result, slide_data.source_refs)
         if not _rewrite_slide(originals[source], slide_data, notes, refs, w, h):
@@ -822,6 +938,60 @@ def build_pptx(result: GenerateResponse, template: bytes | None = None) -> bytes
     buffer = io.BytesIO()
     presentation.save(buffer)
     return buffer.getvalue()
+
+
+def source_map(result: GenerateResponse, template: bytes | None = None) -> dict:
+    """결과 파일의 슬라이드가 어느 원본에서 왔는지. 화면의 "원본과 결과 비교" 가 쓴다.
+
+    화면이 짝짓기 규칙을 다시 구현하면 export 가 바뀌는 순간 화면이 조용히 거짓말을 한다 —
+    실제로는 원본 3장에 얹힌 슬라이드를 원본 1장(표지) 옆에 놓는 식이다. 그래서 화면은
+    규칙을 옮겨 적지 않고 여기서 정해진 배치를 그대로 받는다. `_build_on_template` 과 같은
+    함수(`_assign_sources`)를 부르므로 둘이 어긋날 수 없다.
+
+    - `source_slides`: 원본 슬라이드 수 (원본이 PPTX 가 아니면 0)
+    - `cover_page`: 글까지 원본 그대로 맨 앞에 남는 원본 슬라이드 번호 (없으면 null)
+    - `pairs`: 발표용 덱 순서대로 `{number, page, output}`, 모두 1-based.
+      `page` 는 얹은 원본 슬라이드, `output` 은 결과 파일에서 몇 번째 장인가.
+      원본에 짝이 없으면 `page` 가, 원본 장수가 모자라 파일에서 빠졌으면 `output` 이 null 이다.
+    """
+    deck = result.slide_deck.slides
+    # 원본 없이 새로 그리는 경로: 1장은 표지고 그 뒤로 덱 순서 그대로다 (`build_pptx`).
+    plain = {
+        "source_slides": 0,
+        "cover_page": None,
+        "pairs": [
+            {"number": number, "page": None, "output": number + 1}
+            for number in range(1, len(deck) + 1)
+        ],
+    }
+    if not template or not PPTX_AVAILABLE:
+        return plain
+
+    try:
+        originals = len(Presentation(io.BytesIO(template)).slides)
+        if not originals:
+            raise ValueError("원본 PPTX 에 슬라이드가 없습니다")
+        pages = {item.id: item.page for item in result.source_analysis.source_evidence}
+        # 표지를 뺀 자리가 정원이다 (`_build_on_template` 의 capacity 와 같아야 한다).
+        placed = _assign_sources(deck[: originals - 1], pages, originals)
+    except Exception:  # noqa: BLE001 - 원본 형식은 통제 밖이다. build_pptx 도 여기서 새 덱으로 넘어간다
+        _log.warning("원본 짝짓기를 읽지 못해 새 덱 기준으로 알립니다", exc_info=True)
+        return plain
+
+    # 표지가 파일 1장이라 얹힌 슬라이드는 2장부터다.
+    where = {position: (source, order) for order, (position, source) in enumerate(placed)}
+    return {
+        "source_slides": originals,
+        "cover_page": 1,
+        "pairs": [
+            {
+                "number": number,
+                "page": where[number - 1][0] + 1 if number - 1 in where else None,
+                "output": where[number - 1][1] + 2 if number - 1 in where else None,
+            }
+            for number in range(1, len(deck) + 1)
+        ],
+    }
 
 
 def filename_for(result: GenerateResponse) -> str:

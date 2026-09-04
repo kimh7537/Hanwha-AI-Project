@@ -31,7 +31,17 @@ GET  /api/presentations/{id}/slides/{number}/diff?page={원본 쪽}
   → { regions: [{ x, y, w, h, label }] }
   위 두 PNG 를 픽셀로 대조해 달라진 자리를 돌려준다. 좌표는 0~1 비율이고
   두 렌더의 좌표계가 같아 네모 한 벌이 좌우 양쪽에 함께 맞는다.
+
+GET  /api/presentations/{id}/source-map
+  → { source_slides, cover_page, pairs: [{ number, page, output }] }
+  발표용 덱 `number` 장이 어느 원본 슬라이드(`page`)에 얹혀 결과 파일 몇 장째(`output`)로
+  들어갔는지. 셋 다 1-based 이고, 짝이 없으면 `page`, 파일에서 빠졌으면 `output` 이 null.
 ```
+
+`source-map` 이 있는 이유: 짝짓기 규칙(표지 제외, 근거 최빈 원본 우선, 못 찾으면 남은 원본을
+앞에서부터)은 `export_pptx` 만 알고 있다. 대조 화면이 같은 규칙을 옮겨 적으면 한쪽만 자랄 때
+화면이 실제 파일과 다른 짝을 보여준다. `slides/{number}` 도 이 배치로 파일 쪽수를 찾는다 —
+"덱 N 장 = 파일 N+1 장" 이 아니다.
 
 `diff` 는 파이프라인 데이터가 아니라 화면 표시 보조라서 `contracts.py` 에 두지 않는다
 (계약 4곳 동기화 대상이 아니다). 렌더링은 두 번 다 캐시를 탄다 — 화면이 두 이미지를 이미

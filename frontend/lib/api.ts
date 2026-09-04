@@ -174,6 +174,34 @@ export function presentationSlideUrl(presentationId: string, number: number): st
   return `${base()}/api/presentations/${presentationId}/slides/${number}`;
 }
 
+/**
+ * 발표용 덱의 각 장이 어느 원본 슬라이드에 얹혔는지.
+ *
+ * `page` 는 얹은 원본 슬라이드, `output` 은 결과 파일에서 몇 번째 장인가 (둘 다 1-based).
+ * 원본에 짝이 없으면 `page` 가, 원본 장수가 모자라 파일에서 빠졌으면 `output` 이 null 이다.
+ */
+export type SourceMap = {
+  source_slides: number;
+  cover_page: number | null;
+  pairs: { number: number; page: number | null; output: number | null }[];
+};
+
+/**
+ * 짝짓기를 백엔드에 물어본다. 화면이 규칙을 다시 구현하면 export 가 바뀌는 순간 화면이
+ * 실제 파일과 다른 짝을 보여준다 (원본 3장에 얹힌 슬라이드를 표지 옆에 놓는 식).
+ *
+ * 이것이 없어도 대조 화면은 떠야 하므로 실패는 null 로 끝낸다 — 화면이 글자 기준 짝짓기로 돈다.
+ */
+export async function fetchSourceMap(presentationId: string): Promise<SourceMap | null> {
+  try {
+    const response = await fetch(`${base()}/api/presentations/${presentationId}/source-map`);
+    if (!response.ok) return null;
+    return (await response.json()) as SourceMap;
+  } catch {
+    return null;
+  }
+}
+
 /** 슬라이드 위에 얹을 변경 표시 네모. 좌표는 0~1 비율이다. */
 export type DiffRegion = { x: number; y: number; w: number; h: number; label: string };
 
