@@ -200,6 +200,12 @@ backend\.venv\Scripts\python.exe backend\scripts\check_chroma.py     # Chroma Cl
   그때만 화면이 근거로 짝을 지어 글끼리 견준다.
 - **대조 화면은 원본 순서로 늘어놓는다.** 왼쪽이 원본이라 "원본 1장부터 차례로 무엇이 됐나"로
   읽는 것이 자연스럽고, 청중별로 다시 짠 순서는 각 장의 "발표용 N번째" 표시에서 드러난다.
+- **배포 이미지의 폰트 목록은 장식이 아니다.** 슬라이드 이미지는 리눅스에서 LibreOffice 가
+  굽고, 없는 폰트는 fontconfig 가 고르는 아무 폰트로 바뀐다. 폭이 다르면 상자에 맞춰 짜 둔
+  글이 그대로 줄바꿈된다 — 한글만 깔아 둔 동안 배포에서 `92,929` 가 `92,92 / 9` 로,
+  `2Q25` 가 `2Q2 / 5` 로 쪼개졌다. 넘친 것은 한글이 아니라 **숫자**다(나눔고딕의 숫자는
+  맑은 고딕보다 11~12% 넓고, Noto Sans CJK KR 은 1~3%). `Dockerfile` 과
+  `fonts-substitutes.conf` 가 짝이고 `tests/test_render_fonts.py` 가 지킨다.
 - **화면 라벨의 원본은 `frontend/lib/types.ts` 옆의 `labels.ts` 다.** PPTX 가 백엔드에서
   만들어져 `app/services/labels.py` 에 미러가 있고, `tests/test_labels_mirror.py` 가 대조한다.
 - **검색은 프롬프트 예산을 넘길 때만 돈다.** 문서가 `max_prompt_chars` 안에 들어가면 chunk 전부가

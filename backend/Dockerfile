@@ -6,10 +6,30 @@
 FROM python:3.12-slim
 
 # libreoffice-impress: PPTX → PDF. PDF → PNG 는 이미 의존성인 PyMuPDF 가 그린다.
-# fonts-nanum: 이것이 없으면 슬라이드의 한글이 전부 네모로 나온다. 대조가 목적이라 필수다.
+#
+# 폰트가 왜 이만큼 필요한가. LibreOffice 는 없는 폰트를 fontconfig 가 고르는 아무 폰트로
+# 바꾸고, 글자 폭이 원본과 다르면 상자에 맞춰 짜 둔 글이 그대로 줄바꿈된다. 실제로
+# 한글만 깔아 둔 동안 배포에서 '92,929' 가 '92,92 / 9' 로 쪼개져 나왔다 — 한글이 아니라
+# 숫자가 넘친 것이다(나눔고딕의 숫자는 맑은 고딕보다 11~12% 넓다).
+#
+# fonts-noto-cjk: 맑은 고딕 자리를 받는다. 숫자 폭 오차가 1~3% 로 가장 가깝다.
+# fonts-liberation / carlito / caladea: Arial·Times New Roman·Calibri·Cambria 의
+#   폭이 똑같은 대체본이다. fontconfig 의 30-metric-aliases.conf 가 알아서 이어 주므로
+#   설치만 하면 된다. 이 자료 하나에도 Times New Roman 이 535 곳 쓰인다.
+# fonts-nanum: 위 폰트에 없는 글자를 위한 마지막 받침.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libreoffice-impress fonts-nanum \
+    && apt-get install -y --no-install-recommends \
+        libreoffice-impress \
+        fonts-noto-cjk \
+        fonts-liberation \
+        fonts-crosextra-carlito \
+        fonts-crosextra-caladea \
+        fonts-nanum \
     && rm -rf /var/lib/apt/lists/*
+
+# 어느 폰트로 바뀔지를 우연에 맡기지 않는다. 규칙과 근거는 파일 안에 있다.
+COPY fonts-substitutes.conf /etc/fonts/conf.d/99-audiencedeck-substitutes.conf
+RUN fc-cache -f
 
 WORKDIR /app
 
