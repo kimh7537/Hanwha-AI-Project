@@ -135,3 +135,25 @@ def test_deck_title_is_not_truncated(analysis: SourceAnalysis) -> None:
     deck = _plan(analysis, _request())
     assert deck.title
     assert "…" not in deck.title
+
+
+@pytest.mark.parametrize("wanted", [3, 5, 8, 10])
+def test_requested_slide_count_is_honored(analysis: SourceAnalysis, wanted: int) -> None:
+    """LLM 없이도 사용자가 고른 장수를 그대로 만든다.
+
+    한때 보충 슬라이드가 수치·조건·용어 각 한 장으로 묶여 있어 재료가 남아도 8장에서 멈췄다.
+    조건 화면이 고른 장수를 그대로 예고하므로, 모자라면 그 예고가 거짓말이 된다.
+    """
+    deck = _plan(analysis, _request(duration_minutes=10, slide_count=wanted))
+    assert len(deck.slides) == wanted
+    # 장수를 채우려고 근거 없는 슬라이드를 만들지 않는다.
+    assert all(slide.source_refs for slide in deck.slides)
+
+
+def test_repeated_extra_slides_are_distinguishable(analysis: SourceAnalysis) -> None:
+    """같은 종류가 여러 장이면 제목·결론이 서로 달라야 한 장을 복사한 것으로 보이지 않는다."""
+    deck = _plan(analysis, _request(duration_minutes=10, slide_count=10))
+    titles = [slide.title for slide in deck.slides]
+    takeaways = [slide.takeaway for slide in deck.slides]
+    assert len(titles) == len(set(titles))
+    assert len(takeaways) == len(set(takeaways))

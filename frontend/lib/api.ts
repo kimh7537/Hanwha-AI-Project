@@ -43,6 +43,35 @@ export function warmUpBackend(): void {
   void fetch(`${base()}/api/health`).catch(() => {});
 }
 
+/**
+ * `/api/health` 의 답. 파이프라인 데이터가 아니라 "지금 어느 경로로 도는가"라서
+ * `contracts.py` 에도 `types.ts` 에도 두지 않는다 (`diff` 와 같은 이유, docs/08).
+ */
+export type Health = {
+  provider: string;
+  llm_enabled: boolean;
+  render_enabled: boolean;
+};
+
+let healthOnce: Promise<Health | null> | null = null;
+
+/**
+ * 지금 백엔드가 LLM 을 들고 있는지.
+ *
+ * 한 번만 묻고 그 약속을 돌려쓴다 — 여러 화면이 같은 것을 물어보는데 Render 무료
+ * 인스턴스에 매번 왕복할 이유가 없다. 대신 서버가 도중에 키를 얻어도 새로고침 전까지는
+ * 옛 답을 쓴다. 배포는 뜬 뒤로 이 값이 바뀌지 않아 상관없다.
+ *
+ * 못 닿으면 `null` 이다. "LLM 이 없다"와 "백엔드가 없다"는 다른 사정이고, 후자는
+ * 화면이 이미 따로 알린다. 여기서 둘을 뭉치면 서버가 죽었을 때 엉뚱한 안내가 뜬다.
+ */
+export function fetchHealth(): Promise<Health | null> {
+  healthOnce ??= fetch(`${base()}/api/health`)
+    .then((response) => (response.ok ? (response.json() as Promise<Health>) : null))
+    .catch(() => null);
+  return healthOnce;
+}
+
 export class ApiError extends Error {
   constructor(message: string) {
     super(message);

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1788276351469,
+  "lastScanned": 1788611272770,
   "projectRoot": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
   "techStack": {
     "languages": [
@@ -79,7 +79,7 @@
       "path": "app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1788276351328,
+      "lastAccessed": 1788611272691,
       "keyFiles": [
         "favicon.ico",
         "globals.css",
@@ -90,89 +90,54 @@
     "components": {
       "path": "components",
       "purpose": "UI components",
-      "fileCount": 6,
-      "lastAccessed": 1788276351328,
+      "fileCount": 10,
+      "lastAccessed": 1788611272699,
       "keyFiles": [
         "ConditionStep.tsx",
+        "DemoNotice.tsx",
         "EvidenceRef.tsx",
         "GeneratingStep.tsx",
-        "ResultView.tsx",
-        "ui.tsx"
+        "InlineScript.tsx"
       ]
     },
     "lib": {
       "path": "lib",
       "purpose": "Library code",
-      "fileCount": 4,
-      "lastAccessed": 1788276351337,
+      "fileCount": 5,
+      "lastAccessed": 1788611272700,
       "keyFiles": [
         "api.ts",
         "export.ts",
         "labels.ts",
+        "progress.ts",
         "types.ts"
       ]
     },
     "public": {
       "path": "public",
       "purpose": "Public files",
-      "fileCount": 5,
-      "lastAccessed": 1788276351338,
+      "fileCount": 6,
+      "lastAccessed": 1788611272700,
       "keyFiles": [
         "file.svg",
         "globe.svg",
         "next.svg",
         "vercel.svg",
-        "window.svg"
+        "waiting-game.html"
       ]
     }
   },
   "hotPaths": [
     {
       "path": "components/ResultView.tsx",
-      "accessCount": 21,
-      "lastAccessed": 1788323556810,
+      "accessCount": 3,
+      "lastAccessed": 1788611570810,
       "type": "file"
     },
     {
       "path": "components/SourceCompare.tsx",
-      "accessCount": 15,
-      "lastAccessed": 1788305334211,
-      "type": "file"
-    },
-    {
-      "path": "app/layout.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1788321538147,
-      "type": "file"
-    },
-    {
-      "path": "app/globals.css",
-      "accessCount": 3,
-      "lastAccessed": 1788321463137,
-      "type": "file"
-    },
-    {
-      "path": "components/EvidenceRef.tsx",
-      "accessCount": 3,
-      "lastAccessed": 1788322221935,
-      "type": "file"
-    },
-    {
-      "path": "lib/api.ts",
-      "accessCount": 2,
-      "lastAccessed": 1788305231375,
-      "type": "file"
-    },
-    {
-      "path": "app/page.tsx",
       "accessCount": 1,
-      "lastAccessed": 1788278631498,
-      "type": "file"
-    },
-    {
-      "path": "components/ThemeToggle.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788321503034,
+      "lastAccessed": 1788611463275,
       "type": "file"
     }
   ],

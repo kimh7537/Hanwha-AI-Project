@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1788271086152,
+  "lastScanned": 1788599047599,
   "projectRoot": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project",
   "techStack": {
     "languages": [],
@@ -37,9 +37,10 @@
     "backend": {
       "path": "backend",
       "purpose": null,
-      "fileCount": 3,
-      "lastAccessed": 1788271086100,
+      "fileCount": 5,
+      "lastAccessed": 1788599047568,
       "keyFiles": [
+        "Dockerfile",
         "pytest.ini",
         "requirements.txt"
       ]
@@ -48,7 +49,7 @@
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 11,
-      "lastAccessed": 1788271086101,
+      "lastAccessed": 1788599047569,
       "keyFiles": [
         "00-overview.md",
         "01-contracts.md",
@@ -60,21 +61,34 @@
     "frontend": {
       "path": "frontend",
       "purpose": null,
-      "fileCount": 10,
-      "lastAccessed": 1788271086101,
+      "fileCount": 13,
+      "lastAccessed": 1788599047569,
       "keyFiles": [
         "AGENTS.md",
         "CLAUDE.md",
         "eslint.config.mjs",
-        "next.config.ts",
-        "package-lock.json"
+        "next-env.d.ts",
+        "next.config.ts"
+      ]
+    },
+    "화면캡처": {
+      "path": "화면캡처",
+      "purpose": null,
+      "fileCount": 28,
+      "lastAccessed": 1788599047569,
+      "keyFiles": [
+        "01-업로드.png",
+        "02-업로드완료.png",
+        "03-발표조건.png",
+        "04-생성중.png",
+        "05-결과-발표자료.png"
       ]
     },
     "backend\\app": {
       "path": "backend\\app",
       "purpose": "Application code",
       "fileCount": 3,
-      "lastAccessed": 1788271086102,
+      "lastAccessed": 1788599047570,
       "keyFiles": [
         "config.py",
         "main.py",
@@ -85,40 +99,18 @@
       "path": "backend\\fixtures",
       "purpose": "Test fixtures",
       "fileCount": 9,
-      "lastAccessed": 1788271086102,
+      "lastAccessed": 1788599047571,
       "keyFiles": [
         "audience_content.json",
         "presentation_request.json",
         "presentation_support.json"
       ]
     },
-    "backend\\scripts": {
-      "path": "backend\\scripts",
-      "purpose": "Build/utility scripts",
-      "fileCount": 3,
-      "lastAccessed": 1788271086102,
-      "keyFiles": [
-        "build_fixtures.py",
-        "build_sample_pptx.py",
-        "check_chroma.py"
-      ]
-    },
-    "backend\\tests": {
-      "path": "backend\\tests",
-      "purpose": "Test files",
-      "fileCount": 14,
-      "lastAccessed": 1788271086103,
-      "keyFiles": [
-        "conftest.py",
-        "test_analyzer.py",
-        "test_api.py"
-      ]
-    },
     "frontend\\app": {
       "path": "frontend\\app",
       "purpose": "Application code",
       "fileCount": 4,
-      "lastAccessed": 1788271086103,
+      "lastAccessed": 1788599047571,
       "keyFiles": [
         "favicon.ico",
         "globals.css",
@@ -128,325 +120,44 @@
     "frontend\\components": {
       "path": "frontend\\components",
       "purpose": "UI components",
-      "fileCount": 6,
-      "lastAccessed": 1788271086103,
+      "fileCount": 9,
+      "lastAccessed": 1788599047571,
       "keyFiles": [
         "ConditionStep.tsx",
         "EvidenceRef.tsx",
         "GeneratingStep.tsx"
       ]
-    },
-    "frontend\\lib": {
-      "path": "frontend\\lib",
-      "purpose": "Library code",
-      "fileCount": 4,
-      "lastAccessed": 1788271086104,
-      "keyFiles": [
-        "api.ts",
-        "export.ts",
-        "labels.ts"
-      ]
     }
   },
   "hotPaths": [
     {
-      "path": "backend/app/services/export_pptx.py",
-      "accessCount": 15,
-      "lastAccessed": 1788326331652,
+      "path": "frontend/components/SourceCompare.tsx",
+      "accessCount": 9,
+      "lastAccessed": 1788603687293,
       "type": "file"
     },
     {
-      "path": "docs/07-frontend-ux.md",
-      "accessCount": 12,
-      "lastAccessed": 1788323777142,
+      "path": "frontend/components/ResultView.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1788603665400,
       "type": "file"
     },
     {
-      "path": "backend/app/services/planner.py",
-      "accessCount": 7,
-      "lastAccessed": 1788273785325,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/api/documents.py",
-      "accessCount": 7,
-      "lastAccessed": 1788309266906,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/api/presentations.py",
-      "accessCount": 7,
-      "lastAccessed": 1788309299816,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/prompts/planner.py",
-      "accessCount": 4,
-      "lastAccessed": 1788273827791,
-      "type": "file"
-    },
-    {
-      "path": ".claude/skills/demo-check/run_demo.py",
-      "accessCount": 4,
-      "lastAccessed": 1788274339261,
-      "type": "file"
-    },
-    {
-      "path": "docs/09-schedule-and-demo.md",
-      "accessCount": 4,
-      "lastAccessed": 1788274397104,
-      "type": "file"
-    },
-    {
-      "path": "docs/01-contracts.md",
-      "accessCount": 4,
-      "lastAccessed": 1788278303439,
-      "type": "file"
-    },
-    {
-      "path": "docs/08-api-and-env.md",
-      "accessCount": 4,
-      "lastAccessed": 1788305756702,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/services/slide_diff.py",
-      "accessCount": 4,
-      "lastAccessed": 1788310133073,
-      "type": "file"
-    },
-    {
-      "path": "frontend/lib/export.ts",
-      "accessCount": 4,
-      "lastAccessed": 1788322424506,
-      "type": "file"
-    },
-    {
-      "path": "backend/tests/test_export_pptx.py",
+      "path": "frontend/components/DemoNotice.tsx",
       "accessCount": 3,
-      "lastAccessed": 1788271995782,
-      "type": "file"
-    },
-    {
-      "path": "CLAUDE.md",
-      "accessCount": 3,
-      "lastAccessed": 1788274253821,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/services/pipeline.py",
-      "accessCount": 3,
-      "lastAccessed": 1788278546894,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/main.py",
-      "accessCount": 3,
-      "lastAccessed": 1788304733379,
-      "type": "file"
-    },
-    {
-      "path": "docs/04-slide-planner.md",
-      "accessCount": 2,
-      "lastAccessed": 1788273984822,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/models/contracts.py",
-      "accessCount": 2,
-      "lastAccessed": 1788278250589,
-      "type": "file"
-    },
-    {
-      "path": "frontend/lib/types.ts",
-      "accessCount": 2,
-      "lastAccessed": 1788278262622,
+      "lastAccessed": 1788603646745,
       "type": "file"
     },
     {
       "path": "frontend/lib/api.ts",
       "accessCount": 2,
-      "lastAccessed": 1788309317129,
-      "type": "directory"
-    },
-    {
-      "path": "frontend/components/SourceCompare.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1788309412927,
+      "lastAccessed": 1788600787962,
       "type": "file"
     },
     {
-      "path": "frontend/components/ResultView.tsx",
+      "path": "CLAUDE.md",
       "accessCount": 1,
-      "lastAccessed": 1788272218224,
-      "type": "file"
-    },
-    {
-      "path": "docs/02-document-analysis.md",
-      "accessCount": 1,
-      "lastAccessed": 1788273339647,
-      "type": "file"
-    },
-    {
-      "path": "",
-      "accessCount": 1,
-      "lastAccessed": 1788273720659,
-      "type": "directory"
-    },
-    {
-      "path": "backend/tests/test_planner.py",
-      "accessCount": 1,
-      "lastAccessed": 1788273724513,
-      "type": "file"
-    },
-    {
-      "path": "backend/app/services/store.py",
-      "accessCount": 1,
-      "lastAccessed": 1788278331449,
-      "type": "file"
-    },
-    {
-      "path": "backend/requirements.txt",
-      "accessCount": 1,
-      "lastAccessed": 1788304749973,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/01-업로드.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307242268,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/02-업로드완료.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307251052,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/03-발표조건.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307260488,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/04-생성중.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307270559,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/05-결과-발표자료.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307281595,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/06-청중비교.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307293849,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/07-원본과비교-슬라이드.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307307172,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/08-원본과비교-글자.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307321124,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/09-발표스크립트.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307334455,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/10-예상QA.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307350801,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/11-정확성검증.png",
-      "accessCount": 1,
-      "lastAccessed": 1788307367999,
-      "type": "file"
-    },
-    {
-      "path": "frontend/public/shots/index.html",
-      "accessCount": 1,
-      "lastAccessed": 1788307567538,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/show.ps1",
-      "accessCount": 1,
-      "lastAccessed": 1788307735520,
-      "type": "file"
-    },
-    {
-      "path": "backend/tests/test_slide_diff.py",
-      "accessCount": 1,
-      "lastAccessed": 1788309455020,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교-01.png",
-      "accessCount": 1,
-      "lastAccessed": 1788310511083,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교-02.png",
-      "accessCount": 1,
-      "lastAccessed": 1788310549546,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교-05.png",
-      "accessCount": 1,
-      "lastAccessed": 1788310640509,
-      "type": "file"
-    },
-    {
-      "path": "frontend/app/globals.css",
-      "accessCount": 1,
-      "lastAccessed": 1788321335975,
-      "type": "file"
-    },
-    {
-      "path": "frontend/app/layout.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1788321336170,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교버튼-01-결과상단.png",
-      "accessCount": 1,
-      "lastAccessed": 1788323681837,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교버튼-02-헤더.png",
-      "accessCount": 1,
-      "lastAccessed": 1788323702621,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교버튼-03-오버레이.png",
-      "accessCount": 1,
-      "lastAccessed": 1788323724519,
-      "type": "file"
-    },
-    {
-      "path": "화면캡처/비교버튼-04-라이트.png",
-      "accessCount": 1,
-      "lastAccessed": 1788323754982,
+      "lastAccessed": 1788605057760,
       "type": "file"
     }
   ],

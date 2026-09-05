@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project/backend\\\" && python - <<'EOF'\\nimport json, urllib.request\\nbody = json.dumps({\\\"document_id\\\": \\\"doc-8326684b\\\", \\\"req...",
+  "error": "Exit code 1\npid pres-f3fb8488 slides 6\r\nTraceback (most recent call last):\r\n  File \"<stdin>\", line 9, in <module>\r\nFileNotFoundError: [Errno 2] No such file or directory: '/tmp/pid.txt'\r\ncat: /tmp/pid.txt: No such file or directory",
+  "timestamp": "2026-09-02T23:50:23.839Z",
+  "retry_count": 6
+}

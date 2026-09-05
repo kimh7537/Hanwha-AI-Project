@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project/frontend\\\" && ls -a | grep -i env; echo \\\"--- .env.local\\\"; cat .env.local 2>/dev/null; echo \\\"--- .env.example\\\"; cat ...",
+  "error": "Exit code 1\n.env.local\nnext-env.d.ts\n--- .env.local\nNEXT_PUBLIC_API_BASE_URL=http://localhost:8080\n--- .env.example",
+  "timestamp": "2026-09-03T17:42:32.883Z",
+  "retry_count": 1
+}

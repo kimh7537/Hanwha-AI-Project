@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from collections import Counter
+from itertools import zip_longest
+
 from app.llm.base import RunContext
 from app.models.contracts import (
     Audience,
@@ -23,6 +26,9 @@ STAGE = "슬라이드 설계"
 
 MIN_SLIDES = 3
 MAX_SLIDES = 10
+
+# 보충 슬라이드 한 장에 담는 항목 수. 넘치는 항목은 다음 장으로 넘어간다.
+_EXTRA_PER_SLIDE = 4
 
 # 발표 시간별 기본 장수 (docs/04-slide-planner.md)
 # 조건 화면이 생성 전에 예상 장수를 보여주므로 /api/audiences 로 그대로 내보낸다.
@@ -183,7 +189,7 @@ def plan_heuristic(
     if len(blocks) > room:
         blocks = blocks[:room]
     elif len(blocks) < room:
-        blocks.extend(_extra_slides(analysis, room - len(blocks)))
+        blocks.extend(_extra_slides(analysis, room - len(blocks), seen_takeaways))
 
     if conclusion is not None:
         # 3분 발표는 결론 우선 (docs/04).
@@ -277,53 +283,112 @@ def _deck_title(analysis: SourceAnalysis, request: PresentationRequest) -> str:
     return f"{subject} — {_PURPOSE_TITLES.get(request.purpose, '발표')}"
 
 
-def _extra_slides(analysis: SourceAnalysis, needed: int) -> list[Slide]:
-    """장수가 모자랄 때 원문 사실로 슬라이드를 보충한다."""
-    extras: list[Slide] = []
+def _extra_slides(analysis: SourceAnalysis, needed: int, used: set[str]) -> list[Slide]:
+    """장수가 모자랄 때 원문 사실로 슬라이드를 보충한다.
 
-    if analysis.numbers and needed > 0:
-        numbers = analysis.numbers[:4]
-        extras.append(
-            Slide(
-                id="",
-                title="핵심 수치",
-                takeaway="원문에서 확인된 수치입니다.",
-                bullets=[f"{n.value}{n.unit} — {textutil.to_bullet(n.meaning, 34)}" for n in numbers],
-                visual_suggestion="핵심 지표 카드",
-                speaker_notes="수치는 모두 원문 근거와 연결되어 있다.",
-                source_refs=inherit_refs(*[n.source_refs for n in numbers]),
+    한 종류당 한 장이 아니라 **항목이 남는 만큼 여러 장**을 만든다. 예전에는 수치·조건·용어를
+    각각 4개까지만 담아 보충이 최대 3장이었고, 원문에 수치가 26개 있어도 10장을 요청한 덱이
+    8장에서 멈췄다. 사실을 지어내는 것이 아니라 이미 추출해 둔 사실을 나눠 담는 것이라
+    `source_refs` 는 그대로 유지된다.
+
+    종류를 번갈아 내보낸다. 수치를 먼저 다 쏟으면 앞쪽이 수치 슬라이드로만 채워진다.
+    """
+    if needed <= 0:
+        return []
+
+    # 앞 슬라이드들이 이미 쓴 결론 문장. 한 종류가 여러 장으로 늘어나면
+    # "원문에서 확인된 수치입니다." 가 네 장에 똑같이 붙어 같은 장을 복사한 것처럼 보인다.
+    # 둘째 장부터는 그 장이 실제로 담은 원문 문장을 결론으로 올린다.
+    used_takeaways = used
+
+    def pages(
+        title: str, takeaway: str, visual: str, notes: str, items: list, render, subject
+    ) -> list[Slide]:
+        slides: list[Slide] = []
+        for start in range(0, len(items), _EXTRA_PER_SLIDE):
+            group = items[start : start + _EXTRA_PER_SLIDE]
+            bullets: list[str] = []
+            for item in group:
+                bullet = render(item)
+                if bullet and bullet not in bullets:
+                    bullets.append(bullet)
+            refs = inherit_refs(*[item.source_refs for item in group])
+            if not (bullets and refs):
+                continue
+
+            headline = takeaway if takeaway not in used_takeaways else ""
+            for item in group:
+                if headline:
+                    break
+                candidate = _takeaway(subject(item))
+                if candidate and candidate not in used_takeaways:
+                    headline = candidate
+            if not headline:
+                continue  # 이 장에서 할 말이 앞 장과 겹친다. 같은 결론을 두 번 두지 않는다.
+            used_takeaways.add(headline)
+
+            slides.append(
+                Slide(
+                    id="",
+                    title=title,
+                    takeaway=headline,
+                    bullets=bullets,
+                    visual_suggestion=visual,
+                    speaker_notes=notes,
+                    source_refs=refs,
+                )
             )
-        )
+        return slides
 
-    if analysis.must_keep and len(extras) < needed:
-        conditions = analysis.must_keep[:4]
-        extras.append(
-            Slide(
-                id="",
-                title="반드시 지켜야 할 조건",
-                takeaway="적용 전 확인이 필요한 조건입니다.",
-                bullets=[textutil.to_bullet(c.text) for c in conditions],
-                visual_suggestion="조건 체크리스트",
-                speaker_notes="이 조건이 빠지면 원문을 과도하게 단순화한 것이 된다.",
-                source_refs=inherit_refs(*[c.source_refs for c in conditions]),
-            )
-        )
+    columns = [
+        pages(
+            "핵심 수치",
+            "원문에서 확인된 수치입니다.",
+            "핵심 지표 카드",
+            "수치는 모두 원문 근거와 연결되어 있다.",
+            analysis.numbers,
+            lambda n: f"{n.value}{n.unit} — {textutil.to_bullet(n.meaning, 34)}",
+            lambda n: n.meaning,
+        ),
+        pages(
+            "반드시 지켜야 할 조건",
+            "적용 전 확인이 필요한 조건입니다.",
+            "조건 체크리스트",
+            "이 조건이 빠지면 원문을 과도하게 단순화한 것이 된다.",
+            analysis.must_keep,
+            lambda c: textutil.to_bullet(c.text),
+            lambda c: c.text,
+        ),
+        pages(
+            "용어 정리",
+            "발표에 나오는 용어를 먼저 정리합니다.",
+            "용어와 뜻을 나란히 둔 표",
+            "청중이 모를 수 있는 용어를 먼저 설명한다.",
+            analysis.terms,
+            lambda t: f"{t.term}: {textutil.to_bullet(t.definition, 30)}",
+            lambda t: t.definition,
+        ),
+    ]
 
-    if analysis.terms and len(extras) < needed:
-        terms = analysis.terms[:4]
-        extras.append(
-            Slide(
-                id="",
-                title="용어 정리",
-                takeaway="발표에 나오는 용어를 먼저 정리합니다.",
-                bullets=[f"{t.term}: {textutil.to_bullet(t.definition, 30)}" for t in terms],
-                visual_suggestion="용어와 뜻을 나란히 둔 표",
-                speaker_notes="청중이 모를 수 있는 용어를 먼저 설명한다.",
-                source_refs=inherit_refs(*[t.source_refs for t in terms]),
-            )
-        )
+    extras = [slide for row in zip_longest(*columns) for slide in row if slide is not None]
+    extras = extras[:needed]
+    _number_repeated_titles(extras)
+    return extras
 
-    return [slide for slide in extras if slide.source_refs][:needed]
+
+def _number_repeated_titles(slides: list[Slide]) -> None:
+    """같은 제목이 여러 장이면 `(1/3)` 로 번호를 붙인다.
+
+    번호가 없으면 "핵심 수치" 가 세 장 연달아 나와 같은 슬라이드를 복사한 것처럼 보인다.
+    한 장뿐인 제목은 건드리지 않는다.
+    """
+    totals = Counter(slide.title for slide in slides)
+    seen: Counter[str] = Counter()
+    for slide in slides:
+        base = slide.title
+        if totals[base] > 1:
+            seen[base] += 1
+            slide.title = f"{base} ({seen[base]}/{totals[base]})"
 
 
 def _ensure_keywords(

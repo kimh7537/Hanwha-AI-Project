@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "jobId": "d12599b1-2ee7-4f62-8c49-f35af53b0e32",
+  "sessionId": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+  "scopeKey": "721377a82bf1de5ed9e5863f04d0532081f1b96d86b3b5db1ecbae4cd46470b6",
+  "revision": 2,
+  "createdAt": "2026-09-02T07:36:37.117Z",
+  "updatedAt": "2026-09-02T07:36:37.165Z",
+  "producerGraceExpiresAt": "2026-09-02T07:37:07.117Z",
+  "bestEffortDeadlineAt": "2026-09-02T07:37:58.117Z",
+  "producers": {
+    "core": {
+      "state": "sealed",
+      "intentKey": "b623eb2ac082f2f0b3a761fbe6e1efd0470f3e8af82700af8cc193fbe34b3291",
+      "payloadDigest": "b623eb2ac082f2f0b3a761fbe6e1efd0470f3e8af82700af8cc193fbe34b3291",
+      "sealedAt": "2026-09-02T07:36:37.165Z",
+      "sealedBy": "foreground"
+    },
+    "wiki": {
+      "state": "no-op",
+      "sealedAt": "2026-09-02T07:36:37.117Z",
+      "sealedBy": "wiki-producer"
+    }
+  },
+  "actions": {
+    "foreground-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "febf6dba2f2536433960a07f7cedce72e946b43ced0896570df80f017b8914d2",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {},
+        "foregroundResult": {
+          "removedTransientFiles": 4,
+          "completedAt": "2026-09-02T07:36:37.163Z"
+        }
+      },
+      "budgetMs": 9000,
+      "completedAt": "2026-09-02T07:36:37.165Z",
+      "lastOutcomeCode": "completed"
+    },
+    "wiki-capture": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "1719cd1ef5b51e0269b78c4cb8c9308c9c1f7b82fd1c067fc034c060f23863f5",
+      "payload": {},
+      "budgetMs": 9000,
+      "completedAt": "2026-09-02T07:36:37.117Z"
+    },
+    "team-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "cee6ac31df545408e1e822247ac249b3f8182a98a5fe8e448ae3b251e55bdee1",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "python-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "1f1370c4ac056606059d517e2f106b602d8cbcb04587b3fcc5f3b9f89e649cd0",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "reply-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "0b3a8b47c28b26d56aca004d4f572b96c118f16819c0d35162418816f9a5420a",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000
+    },
+    "callback": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "d068ede2655bf89e0c0950e087d0603d7dcf45538e94f20a654d08c6f4841895",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    },
+    "notification": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "89c0438ff63097ce04beb60efb87292ff68a7af350a0ee331f3de9dbf42d62fc",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    },
+    "openclaw": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "pending",
+      "attempts": 0,
+      "idempotencyKey": "31fe8f6e1cf204e27006de511df257326fdd98655122ca437013e8779ffc735b",
+      "payload": {
+        "transcriptPath": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+        "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+        "reason": "other",
+        "input": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "transcript_path": "C:\\Users\\hyunwoo\\.claude\\projects\\C--Users-hyunwoo-OneDrive--------------ai-----Hanwha-AI-Project-frontend\\d262d57d-52ce-4131-ac2e-d551a29d396c.jsonl",
+          "cwd": "C:\\Users\\hyunwoo\\OneDrive\\바탕 화면\\한화투자증권\\ai프로젝트\\Hanwha-AI-Project\\frontend",
+          "prompt_id": "47ec37b8-04ac-493b-93fa-a76a34ecd6ca",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "d262d57d-52ce-4131-ac2e-d551a29d396c",
+          "ended_at": "2026-09-02T07:36:37.061Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000
+    }
+  },
+  "owner": null,
+  "phase": "ready"
+}

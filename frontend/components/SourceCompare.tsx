@@ -11,6 +11,7 @@ import {
   type SourceMap,
 } from "@/lib/api";
 import type { GenerateResponse, PageContent, Slide } from "@/lib/types";
+import { DemoNotice } from "./DemoNotice";
 
 /**
  * 원본 문서와 생성된 발표자료를 슬라이드 단위로 나란히 놓는 전체 화면 비교.
@@ -202,6 +203,10 @@ export function SourceCompare({
       aria-label="원본과 결과 비교"
       className="animate-in fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md"
     >
+      {/* 비교 화면에 들어설 때 한 번 더 막아선다. 원본과 생성물을 나란히 놓고 보는 이 자리가
+       * 문장 품질이 가장 눈에 띄는 자리라, 결과 화면에서 닫았어도 여기서는 다시 밝힌다. */}
+      <DemoNotice scope="compare" />
+
       <div className="glass shrink-0 border-b border-line px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">

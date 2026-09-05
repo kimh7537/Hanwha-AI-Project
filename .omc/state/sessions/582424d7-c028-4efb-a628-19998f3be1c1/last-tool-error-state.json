@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project\\\" && ls render.yaml vercel.json frontend/vercel.json backend/render.yaml Dockerfile backend/Dockerfile 2>&1 | head; ech...",
+  "error": "Exit code 1\nls: cannot access 'vercel.json': No such file or directory\nls: cannot access 'frontend/vercel.json': No such file or directory\nls: cannot access 'backend/render.yaml': No such file or directory\nls: cannot access 'Dockerfile': No such file or directory\nbackend/Dockerfile\nrender.yaml\n=== .vercel 존재? ===\n.vercel\nfrontend/.vercel\n=== CLI 유무 ===\nwhich: no render in (/c/Users/hyunwoo/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/bin:/mingw64/bin:/usr/bin:/c/Users/hyunwoo/bin:/c/Users/hyunwoo/A...",
+  "timestamp": "2026-09-05T12:43:57.587Z",
+  "retry_count": 1
+}

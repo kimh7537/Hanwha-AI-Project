@@ -23,6 +23,7 @@ import {
 import { ApiError, fetchPresentationPptx, generatePresentation } from "@/lib/api";
 import { download, downloadBlob, toMarkdown } from "@/lib/export";
 import { creepPercent, formatElapsed, tipAt, useElapsed } from "@/lib/progress";
+import { DemoNotice } from "./DemoNotice";
 import { EvidenceDialog, EvidenceRefs } from "./EvidenceRef";
 import { SourceCompare } from "./SourceCompare";
 import {
@@ -87,6 +88,12 @@ export function ResultView({
   const isCustomer = result.request.audience === "customer";
   const cautions = result.audience_content.cautions;
   const activeReport = report ?? result.verification_report;
+
+  // 원본과의 대조는 업로드가 PPTX 일 때만 성립한다. PDF·TXT 에는 맞댈 원본 슬라이드가 없어
+  // 비교 화면을 열어도 왼쪽이 글 뭉치뿐이다. 누른 뒤에 실망시키지 않고 문에서 막고,
+  // 대신 왜 안 되는지와 어떻게 하면 켜지는지를 버튼 바로 옆에 적는다.
+  const sourceKind = result.document.filename.split(".").pop()?.toUpperCase() || "이 형식";
+  const canCompare = sourceKind === "PPTX";
 
   return (
     <div className="space-y-4">
@@ -185,6 +192,10 @@ export function ResultView({
         </div>
       </Card>
 
+      {/* `fixed` 로 화면을 덮으므로 트리 위치는 화면 위치를 정하지 않는다. 결과가 처음 뜨는
+       * 순간 한 번 막아서고, 닫으면 모든 탭에서 다시 뜨지 않는다. */}
+      <DemoNotice scope="result" />
+
       <div className="glass sticky top-[57px] z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-line p-1.5">
         <div role="tablist" className="flex flex-wrap gap-1">
           {TABS.map((name) => (
@@ -208,16 +219,40 @@ export function ResultView({
          * 탭이 아니라 오버레이를 여는 버튼이므로 `role="tablist"` 밖이다. */}
         <button
           type="button"
+          disabled={!canCompare}
+          // 막힌 이유를 버튼에 매단다. 회색 버튼만 보고 "고장인가" 하지 않도록,
+          // 마우스를 안 쓰는 사람도 초점만으로 사정을 듣게 한다.
+          aria-describedby="compare-hint"
           onClick={() => setComparing(true)}
-          className="ml-auto flex items-center gap-1.5 rounded-xl border border-accent/45 bg-accent-soft px-3.5 py-2 text-xs font-semibold text-accent transition-all duration-300 hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_12px_28px_-16px_rgba(255,138,61,0.9)] sm:text-sm"
+          className={`ml-auto flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-300 sm:text-sm ${
+            canCompare
+              ? "border-accent/45 bg-accent-soft text-accent hover:-translate-y-0.5 hover:border-accent hover:shadow-[0_12px_28px_-16px_rgba(255,138,61,0.9)]"
+              : "cursor-not-allowed border-line bg-surface-muted text-muted"
+          }`}
         >
           <span aria-hidden>⇄</span>
           원본과 비교
+          {canCompare ? null : (
+            // 색만으로 꺼진 상태를 알리지 않는다.
+            <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-semibold">
+              PPTX 전용
+            </span>
+          )}
         </button>
       </div>
-      <p className="-mt-1 px-1.5 text-[11px] leading-relaxed text-muted">
-        <span className="font-semibold text-foreground">원본과 비교</span> — 업로드한 원본과 생성된
-        슬라이드를 한 장씩 나란히 놓고, 달라진 자리를 빨간 네모로 표시합니다.
+      <p id="compare-hint" className="-mt-1 px-1.5 text-[11px] leading-relaxed text-muted">
+        <span className="font-semibold text-foreground">원본과 비교</span> —{" "}
+        {canCompare ? (
+          "업로드한 원본과 생성된 슬라이드를 한 장씩 나란히 놓고, 달라진 자리를 빨간 네모로 표시합니다."
+        ) : (
+          <>
+            원본 슬라이드와 생성된 슬라이드를 한 장씩 맞대어 보는 기능이라 PPTX 업로드에서만
+            사용할 수 있습니다. 지금 올리신 {sourceKind} 문서에는 맞댈 원본 슬라이드가 없습니다.
+            발표자료·스크립트·예상 Q&amp;A·정확성 검증은 그대로 확인하실 수 있고, 원문 근거는{" "}
+            <span className="font-semibold text-foreground">정확성 검증</span> 탭에서 문장 단위로
+            대조됩니다.
+          </>
+        )}
       </p>
 
       {tab === "발표자료" ? (

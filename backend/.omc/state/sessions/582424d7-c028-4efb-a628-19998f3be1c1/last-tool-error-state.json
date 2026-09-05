@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/hyunwoo/OneDrive/바탕 화면/한화투자증권/ai프로젝트/Hanwha-AI-Project/backend\\\" && .venv/Scripts/python.exe -m pytest 2>&1 | tail -2 && echo \\\"=== 생성 결과 미리보기 (임원 / 10장) ===\\\" && cat > /c/Us...",
+  "error": "Exit code 1\n.....................................................                    [100%]\r\n197 passed in 2.16s\r\n=== 생성 결과 미리보기 (임원 / 10장) ===\nslide-1  [한 줄 결론                  ] The innovating pioneer for a sustainable tomorrow  (refs 1)\r\nslide-2  [도입 효과                   ] 2026년 2분기 실적발표 92,929 +47%  (refs 1)\r\nslide-3  [리스크와 전제 조건              ] ’28년까지 11조원 이상을 투자 및 연구개발에 집중하여 미래 성장 동력 확보 장기적인 관점에  (refs 1)\r\nslide-4  [판단에 필요한 기술 요약           ] 4월 | 폴란드 KRAB 차체 구성품 | 0.4 `25.  (refs 2)\r\nslide-...",
+  "timestamp": "2026-09-05T10:42:51.760Z",
+  "retry_count": 1
+}
